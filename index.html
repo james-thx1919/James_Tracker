@@ -5,24 +5,38 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
 <title>James — Health Dashboard</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
-:root{
-  --g1:#1B4332;--g2:#40916C;--g3:#D8F3DC;--g4:#95D5B2;
-  --o1:#E76F51;--o2:#FFE8E0;
-  --bg:#F4F1EC;--card:#FFFFFF;
-  --t1:#1A1A2E;--t2:#6B7280;--t3:#9CA3AF;
-  --bdr:#E5E0D8;
-  --red:#DC2626;--amber:#D97706;--em:#059669;
-}
+:root{--g1:#1B4332;--g2:#40916C;--g3:#D8F3DC;--g4:#95D5B2;--o1:#E76F51;--bg:#F4F1EC;--card:#FFFFFF;--t1:#1A1A2E;--t2:#6B7280;--t3:#9CA3AF;--bdr:#E5E0D8;--red:#DC2626;--amber:#D97706;--em:#059669;}
 body{font-family:Georgia,serif;background:var(--bg);color:var(--t1);min-height:100vh;padding-bottom:72px;-webkit-font-smoothing:antialiased;}
 
+/* AUTH */
+#auth-screen{position:fixed;inset:0;background:var(--g1);z-index:1000;display:flex;align-items:center;justify-content:center;padding:32px;}
+#auth-screen.hidden{display:none;}
+.auth-card{text-align:center;max-width:340px;width:100%;}
+.auth-logo{font-size:56px;margin-bottom:16px;}
+.auth-title{font-size:28px;font-weight:700;color:#fff;margin-bottom:6px;}
+.auth-sub{font-size:14px;color:rgba(255,255,255,.55);margin-bottom:36px;line-height:1.6;}
+.auth-btn{display:flex;align-items:center;justify-content:center;gap:12px;background:#fff;color:#1A1A2E;border:none;border-radius:14px;padding:14px 24px;font-size:16px;font-weight:700;font-family:Georgia,serif;cursor:pointer;width:100%;}
+.auth-err{color:#FCA5A5;font-size:12px;margin-top:12px;min-height:18px;font-family:monospace;}
+#cfg-note{background:rgba(255,255,255,.1);border-radius:12px;padding:14px;margin-top:16px;font-size:11px;color:rgba(255,255,255,.7);font-family:monospace;line-height:1.7;text-align:left;}
+
+/* SYNC PILL */
+#sync-pill{position:fixed;top:58px;right:12px;z-index:80;font-size:10px;font-family:monospace;padding:3px 9px;border-radius:10px;background:rgba(27,67,50,.9);color:var(--g4);opacity:0;transition:opacity .4s;pointer-events:none;}
+#sync-pill.show{opacity:1;}
+
 /* HEADER */
-.hdr{background:var(--g1);padding:14px 18px 12px;position:sticky;top:0;z-index:50;}
+.hdr{background:var(--g1);padding:12px 16px 10px;position:sticky;top:0;z-index:50;}
 .hdr-eye{font-size:10px;color:var(--g4);letter-spacing:2px;text-transform:uppercase;font-family:monospace;}
 .hdr-row{display:flex;align-items:center;justify-content:space-between;margin-top:2px;}
 .hdr-title{font-size:20px;font-weight:700;color:#fff;letter-spacing:-0.5px;}
-.hdr-sober{font-size:12px;color:rgba(255,255,255,.65);}
+.hdr-right{display:flex;align-items:center;gap:8px;}
+.hdr-sober{font-size:11px;color:rgba(255,255,255,.6);}
+.hdr-av{width:28px;height:28px;border-radius:50%;border:2px solid var(--g4);cursor:pointer;object-fit:cover;display:none;}
+.hdr-av.show{display:block;}
 
 /* NAV */
 .nav{position:fixed;bottom:0;left:0;right:0;background:var(--g1);display:flex;z-index:100;padding-bottom:env(safe-area-inset-bottom,0px);}
@@ -47,7 +61,7 @@ body{font-family:Georgia,serif;background:var(--bg);color:var(--t1);min-height:1
 .ml{font-size:9px;color:var(--t2);margin-top:3px;text-transform:uppercase;letter-spacing:.5px;font-family:monospace;}
 .md{font-size:10px;margin-top:3px;font-family:monospace;}
 
-/* MACRO BARS */
+/* BARS */
 .br{margin-bottom:8px;}
 .br-h{display:flex;justify-content:space-between;margin-bottom:3px;}
 .br-l{font-size:9px;font-weight:700;color:var(--t2);text-transform:uppercase;letter-spacing:1px;font-family:monospace;}
@@ -68,6 +82,7 @@ body{font-family:Georgia,serif;background:var(--bg);color:var(--t1);min-height:1
 .bg{background:var(--g1);color:#fff;}
 .bgl{background:var(--g3);color:var(--g1);}
 .bo{background:var(--o1);color:#fff;}
+.bred{background:#FEE2E2;color:var(--red);}
 .bsm{padding:8px 16px;font-size:13px;width:auto;display:inline-block;margin-bottom:0;}
 
 /* INPUTS */
@@ -77,7 +92,7 @@ input:focus,textarea:focus{border-color:var(--g2);}
 .ir{margin-bottom:9px;}
 textarea{resize:vertical;min-height:75px;}
 
-/* SCORE RING */
+/* RING */
 .rw{display:flex;justify-content:center;margin:8px 0 12px;}
 .ring{position:relative;width:115px;height:115px;}
 .ring svg{width:100%;height:100%;transform:rotate(-90deg);}
@@ -91,7 +106,7 @@ textarea{resize:vertical;min-height:75px;}
 .si-l{font-size:12px;}
 .si-p{font-size:12px;font-weight:700;font-family:monospace;}
 
-/* FOOD ENTRIES */
+/* FOOD */
 .fe{display:flex;justify-content:space-between;align-items:flex-start;padding:8px 0;border-bottom:1px solid var(--bdr);}
 .fe:last-child{border-bottom:none;}
 .fe-n{font-size:13px;flex:1;}
@@ -109,14 +124,14 @@ textarea{resize:vertical;min-height:75px;}
 .cd-d{font-size:8px;color:var(--t2);text-transform:uppercase;letter-spacing:.5px;font-family:monospace;}
 .cd-dot{width:4px;height:4px;border-radius:50%;background:var(--g2);margin-top:2px;}
 
-/* PROTOCOL TOGGLES */
+/* PROTOCOL */
 .pt{display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:11px;background:var(--bg);border:1px solid var(--bdr);margin-bottom:7px;cursor:pointer;user-select:none;}
 .pt.on{background:var(--g3);border-color:var(--g2);}
 .pt-i{font-size:18px;}
 .pt-t{flex:1;font-size:13px;}
 .pt-c{font-size:16px;}
 
-/* HYDRATION DOTS */
+/* HYDRATION */
 .hdots{display:flex;gap:7px;}
 .hdot{width:25px;height:25px;border-radius:50%;background:#E5E7EB;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;font-family:monospace;}
 .hdot.on{background:var(--g1);color:#fff;}
@@ -130,16 +145,15 @@ textarea{resize:vertical;min-height:75px;}
 /* CHART */
 .ch{position:relative;height:185px;margin:8px 0;}
 
-/* TREND VALUE ROWS */
+/* TREND ROWS */
 .tv{display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--bdr);}
 .tv:last-child{border-bottom:none;}
 .tv-l{font-size:11px;color:var(--t2);font-family:monospace;text-transform:uppercase;letter-spacing:.5px;}
 .tv-v{font-size:14px;font-weight:700;}
 
 /* SOBER BANNER */
-.sb{background:linear-gradient(135deg,#1B4332 0%,#2D6A4F 50%,#40916C 100%);border-radius:16px;padding:16px 18px;color:#fff;margin-bottom:11px;display:flex;align-items:center;gap:16px;}
-.sb-n{font-size:52px;font-weight:700;line-height:1;color:#fff;}
-.sb-r{flex:1;}
+.sb{background:linear-gradient(135deg,#1B4332,#2D6A4F 50%,#40916C);border-radius:16px;padding:16px 18px;color:#fff;margin-bottom:11px;display:flex;align-items:center;gap:16px;}
+.sb-n{font-size:52px;font-weight:700;line-height:1;}
 .sb-lbl{font-size:13px;opacity:.7;margin-top:1px;}
 .sb-tag{font-size:10px;background:rgba(255,255,255,.18);padding:3px 10px;border-radius:10px;margin-top:8px;display:inline-block;font-family:monospace;letter-spacing:.5px;}
 
@@ -150,41 +164,61 @@ textarea{resize:vertical;min-height:75px;}
 .ovcl{float:right;background:none;border:none;font-size:24px;cursor:pointer;color:var(--t2);line-height:1;}
 .ovt{font-size:18px;font-weight:700;margin-bottom:14px;display:block;}
 
-/* CHANGE PILLS */
+/* DELTA PILLS */
 .cp{display:inline-block;padding:2px 7px;border-radius:7px;font-size:10px;font-weight:700;font-family:monospace;}
 .cu{background:#FEE2E2;color:#991B1B;}
 .cd2{background:#D1FAE5;color:#065F46;}
 .ceq{background:#F3F4F6;color:var(--t2);}
 
-/* QUICK ADD */
+/* MISC */
 .qa{display:flex;flex-wrap:wrap;gap:5px;margin-top:8px;}
 .qab{padding:5px 11px;border-radius:15px;border:1px solid var(--bdr);background:var(--bg);font-size:11px;font-family:Georgia,serif;cursor:pointer;color:var(--t1);}
-
-/* SPINNER */
 .spin{display:inline-block;width:14px;height:14px;border:2px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:sp .7s linear infinite;vertical-align:middle;margin-right:5px;}
 @keyframes sp{to{transform:rotate(360deg);}}
-
-/* SCAN GRID */
 .sg{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
-
-/* IMPORTED TAG */
 .imp-tag{font-size:10px;color:var(--g2);font-family:monospace;padding:2px 8px;background:var(--g3);border-radius:8px;display:inline-block;margin-bottom:8px;}
-
-/* DIVIDER */
 .dv{height:1px;background:var(--bdr);margin:11px 0;}
-
-/* ALERT */
 .alert{background:#FEF3C7;border:1px solid #FCD34D;border-radius:10px;padding:10px 13px;font-size:12px;color:#92400E;margin-bottom:9px;}
+.user-row{display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--bg);border-radius:11px;margin-bottom:11px;}
+.user-av{width:36px;height:36px;border-radius:50%;border:2px solid var(--g2);}
+.user-name{font-size:13px;font-weight:700;}
+.user-email{font-size:10px;color:var(--t2);font-family:monospace;}
 </style>
 </head>
 <body>
+
+<!-- AUTH SCREEN -->
+<div id="auth-screen">
+  <div class="auth-card">
+    <div class="auth-logo">🌿</div>
+    <div class="auth-title">James Health</div>
+    <div class="auth-sub">Your personal health dashboard.<br>Sign in to sync across phone and Mac.</div>
+    <button class="auth-btn" onclick="signInGoogle()">
+      <svg width="20" height="20" viewBox="0 0 24 24"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/></svg>
+      Sign in with Google
+    </button>
+    <div class="auth-err" id="auth-err"></div>
+    <div id="cfg-note" style="display:none;">
+      ⚠️ Firebase not configured yet.<br>
+      See setup instructions in the README,<br>
+      or paste your Firebase config into the<br>
+      FIREBASE_CONFIG object in this file.
+    </div>
+  </div>
+</div>
+
+<!-- SYNC PILL -->
+<div id="sync-pill">☁ syncing…</div>
 
 <!-- HEADER -->
 <div class="hdr">
   <div class="hdr-eye">James Marshall · 54 · 6'0" · Toronto</div>
   <div class="hdr-row">
     <div class="hdr-title">Health Dashboard</div>
-    <div class="hdr-sober" id="hdr-sober">Day 17 Sober 🌿</div>
+    <div class="hdr-right">
+      <div class="hdr-sober" id="hdr-sober">Day — Sober 🌿</div>
+      <img class="hdr-av" id="hdr-av" src="" onclick="openSettings()" alt="Settings">
+    </div>
   </div>
 </div>
 
@@ -197,36 +231,20 @@ textarea{resize:vertical;min-height:75px;}
   <button class="nb" onclick="switchTab('score',this)"><span class="ni">✅</span>Score</button>
 </nav>
 
-<!-- =================== DASHBOARD =================== -->
+<!-- ── DASHBOARD ── -->
 <div class="tab on" id="tab-dash">
   <div id="dash-sober-banner"></div>
-  <div class="card">
-    <div class="clbl">Today's Protocol · <span id="dash-date-lbl"></span></div>
-    <div id="dash-proto"></div>
-  </div>
-  <div class="card">
-    <div class="clbl">Nutrition Today</div>
-    <div id="dash-macros"></div>
-    <div style="margin-top:10px;" id="dash-badges"></div>
-  </div>
-  <div class="card">
-    <div class="clbl">Latest Body Scan</div>
-    <div id="dash-scan"></div>
-  </div>
+  <div class="card"><div class="clbl">Today's Protocol · <span id="dash-date-lbl"></span></div><div id="dash-proto"></div></div>
+  <div class="card"><div class="clbl">Nutrition Today</div><div id="dash-macros"></div><div style="margin-top:10px;" id="dash-badges"></div></div>
+  <div class="card"><div class="clbl">Latest Body Scan</div><div id="dash-scan"></div></div>
   <button class="btn bo" onclick="openSummary()">📋 Generate Summary for Steve</button>
   <button class="btn bgl" onclick="openSettings()">⚙️ Settings</button>
 </div>
 
-<!-- =================== LOG =================== -->
+<!-- ── LOG ── -->
 <div class="tab" id="tab-log">
-  <div class="card" style="padding-bottom:10px;">
-    <div class="clbl">Select Day</div>
-    <div class="cal" id="cal"></div>
-  </div>
-  <div class="card">
-    <div class="clbl">Daily Protocol</div>
-    <div id="log-proto"></div>
-  </div>
+  <div class="card" style="padding-bottom:10px;"><div class="clbl">Select Day</div><div class="cal" id="cal"></div></div>
+  <div class="card"><div class="clbl">Daily Protocol</div><div id="log-proto"></div></div>
   <div class="card">
     <div class="clbl">Add Food</div>
     <div class="stabs" id="meal-tabs">
@@ -236,10 +254,10 @@ textarea{resize:vertical;min-height:75px;}
       <button class="stab" onclick="setMeal('Snacks',this)">Snacks</button>
     </div>
     <div style="display:flex;gap:8px;">
-      <input type="text" id="finput" placeholder='e.g. "3oz rotisserie chicken"' onkeydown="if(event.key==='Enter')addFood()">
+      <input type="text" id="finput" placeholder='"3oz rotisserie chicken"' onkeydown="if(event.key==='Enter')addFood()">
       <button class="btn bg bsm" onclick="addFood()" id="addbtn" style="min-width:48px;">+</button>
     </div>
-    <div class="qa" id="qa-grid">
+    <div class="qa">
       <button class="qab" onclick="qadd('2 hard boiled eggs')">🥚 2 eggs</button>
       <button class="qab" onclick="qadd('4oz rotisserie chicken no skin')">🍗 Chicken 4oz</button>
       <button class="qab" onclick="qadd('2 cups spinach raw')">🥬 Spinach 2c</button>
@@ -256,28 +274,21 @@ textarea{resize:vertical;min-height:75px;}
     <div id="add-status" style="font-size:11px;color:var(--t2);margin-top:8px;min-height:16px;font-style:italic;"></div>
   </div>
   <div id="log-meals"></div>
-  <div class="card">
-    <div class="clbl">Notes for Steve</div>
-    <textarea id="log-notes" placeholder="How are you feeling? Symptoms, ostomy output, energy, leg spots, rib fullness..." onblur="saveNotes()"></textarea>
-  </div>
+  <div class="card"><div class="clbl">Notes for Steve</div><textarea id="log-notes" placeholder="Symptoms, ostomy output, energy, leg spots, rib fullness…" onblur="saveNotes()"></textarea></div>
 </div>
 
-<!-- =================== BODY =================== -->
+<!-- ── BODY ── -->
 <div class="tab" id="tab-body">
-  <div class="card">
-    <div class="clbl">Scan History</div>
-    <div id="scan-hist"></div>
-  </div>
   <div class="card" style="border:2px dashed var(--g2);background:var(--g3);">
     <div class="clbl" style="color:var(--g1);">📄 Import Arboleaf PDF via AI</div>
-    <p style="font-size:13px;color:var(--g1);margin-bottom:12px;line-height:1.6;">Tap below, pick your Arboleaf PDF — Claude reads it and fills everything in automatically.</p>
+    <p style="font-size:13px;color:var(--g1);margin-bottom:12px;line-height:1.6;">Pick your Arboleaf PDF — Claude reads and fills every field automatically.</p>
     <input type="file" id="pdf-input" accept="application/pdf" style="display:none;" onchange="parseScanPDF(this)">
     <button class="btn bg" onclick="document.getElementById('pdf-input').click()" id="pdf-btn">📄 Choose Arboleaf PDF</button>
     <div id="pdf-status" style="font-size:12px;color:var(--g1);margin-top:8px;min-height:18px;font-style:italic;text-align:center;"></div>
   </div>
   <div class="card">
-    <div class="clbl">Add New Arboleaf Scan</div>
-    <div style="font-size:11px;color:var(--t2);margin-bottom:11px;font-style:italic;">Fields auto-fill when you import a PDF above, or enter manually.</div>
+    <div class="clbl">Add / Review Scan</div>
+    <div style="font-size:11px;color:var(--t2);margin-bottom:11px;font-style:italic;">Auto-filled after PDF import, or enter manually.</div>
     <div class="sg">
       <div class="ir"><span class="il">Date</span><input type="date" id="s-date"></div>
       <div class="ir"><span class="il">Weight (lbs)</span><input type="number" id="s-wt" step="0.1" placeholder="234.6"></div>
@@ -290,15 +301,13 @@ textarea{resize:vertical;min-height:75px;}
     </div>
     <button class="btn bg" onclick="saveScan()">Save Scan ✓</button>
   </div>
-  <div class="card">
-    <div class="clbl">Day-Over-Day Comparison</div>
-    <div id="scan-cmp"></div>
-  </div>
+  <div class="card"><div class="clbl">Scan History</div><div id="scan-hist"></div></div>
+  <div class="card"><div class="clbl">Day-Over-Day Comparison</div><div id="scan-cmp"></div></div>
 </div>
 
-<!-- =================== TRENDS =================== -->
+<!-- ── TRENDS ── -->
 <div class="tab" id="tab-trends">
-  <div class="stabs">
+  <div class="stabs" id="trend-tabs">
     <button class="stab on" onclick="showTrend('weight',this)">Weight</button>
     <button class="stab" onclick="showTrend('bodyfat',this)">Body Fat</button>
     <button class="stab" onclick="showTrend('protein',this)">Protein</button>
@@ -306,68 +315,57 @@ textarea{resize:vertical;min-height:75px;}
     <button class="stab" onclick="showTrend('sodium',this)">Sodium</button>
     <button class="stab" onclick="showTrend('muscle',this)">Muscle</button>
   </div>
-  <div class="card">
-    <div class="clbl" id="trend-title">Weight Trend</div>
-    <div class="ch"><canvas id="tchart"></canvas></div>
-    <div id="trend-stats"></div>
-  </div>
+  <div class="card"><div class="clbl" id="trend-title">Weight Trend</div><div class="ch"><canvas id="tchart"></canvas></div><div id="trend-stats"></div></div>
   <div class="card">
     <div class="clbl">Key Milestones</div>
     <div class="tv"><span class="tv-l">Baseline Weight</span><span class="tv-v">~236 lbs (Mar 7)</span></div>
     <div class="tv"><span class="tv-l">Current Weight</span><span class="tv-v" id="t-cw">—</span></div>
     <div class="tv"><span class="tv-l">Target Weight</span><span class="tv-v">201.4 lbs</span></div>
-    <div class="tv"><span class="tv-l">Weight To Goal</span><span class="tv-v" id="t-goal">—</span></div>
+    <div class="tv"><span class="tv-l">To Goal</span><span class="tv-v" id="t-goal">—</span></div>
     <div class="tv"><span class="tv-l">Visceral Fat</span><span class="tv-v" id="t-vf">Grade 14 → Target &lt;10</span></div>
     <div class="tv"><span class="tv-l">Sober Streak</span><span class="tv-v" id="t-sober">—</span></div>
-    <div class="tv"><span class="tv-l">MFP Data Range</span><span class="tv-v">Mar 10–24, 2026</span></div>
   </div>
 </div>
 
-<!-- =================== SCORE =================== -->
+<!-- ── SCORE ── -->
 <div class="tab" id="tab-score">
   <div class="card">
     <div class="clbl">Today's Protocol Score</div>
-    <div class="rw">
-      <div class="ring">
-        <svg viewBox="0 0 110 110"><circle cx="55" cy="55" r="47" fill="none" stroke="#EEE9E0" stroke-width="10"/><circle cx="55" cy="55" r="47" fill="none" stroke="var(--g1)" stroke-width="10" stroke-linecap="round" stroke-dasharray="295.3" stroke-dashoffset="295.3" id="ring-arc" style="transition:stroke-dashoffset .6s ease,stroke .4s;"/></svg>
-        <div class="rt"><div class="rn" id="score-num">—</div><div class="rs">/ 100</div></div>
-      </div>
-    </div>
+    <div class="rw"><div class="ring"><svg viewBox="0 0 110 110"><circle cx="55" cy="55" r="47" fill="none" stroke="#EEE9E0" stroke-width="10"/><circle cx="55" cy="55" r="47" fill="none" stroke="var(--g1)" stroke-width="10" stroke-linecap="round" stroke-dasharray="295.3" stroke-dashoffset="295.3" id="ring-arc" style="transition:stroke-dashoffset .6s ease,stroke .4s;"/></svg><div class="rt"><div class="rn" id="score-num">—</div><div class="rs">/ 100</div></div></div></div>
     <div id="score-items"></div>
   </div>
-  <div class="card">
-    <div class="clbl">7-Day Averages</div>
-    <div id="week-avgs"></div>
-  </div>
-  <div class="card">
-    <div class="clbl">Protocol Compliance (14 Days)</div>
-    <div class="ch"><canvas id="schart"></canvas></div>
-  </div>
+  <div class="card"><div class="clbl">7-Day Averages</div><div id="week-avgs"></div></div>
+  <div class="card"><div class="clbl">Protocol Compliance (14 Days)</div><div class="ch"><canvas id="schart"></canvas></div></div>
   <button class="btn bo" onclick="openSummary()">📋 Generate Summary for Steve</button>
 </div>
 
-<!-- =================== SUMMARY OVERLAY =================== -->
+<!-- SUMMARY OVERLAY -->
 <div class="ov" id="ov-sum">
   <div class="ovc">
     <button class="ovcl" onclick="closeOv('ov-sum')">×</button>
-    <span class="ovt">Steve's Clinical Summary</span>
+    <span class="ovt">📋 Steve's Clinical Summary</span>
     <div style="font-size:10px;color:var(--t2);font-family:monospace;margin-bottom:14px;" id="sum-dt"></div>
-    <div id="sum-body" style="font-size:13px;line-height:1.85;white-space:pre-wrap;color:var(--t1);margin-bottom:16px;min-height:60px;">Generating...</div>
+    <div id="sum-body" style="font-size:13px;line-height:1.85;white-space:pre-wrap;color:var(--t1);margin-bottom:16px;min-height:60px;">Generating…</div>
     <button class="btn bg" onclick="copySummary()">📋 Copy to Send to Steve</button>
     <button class="btn bgl" onclick="closeOv('ov-sum')">Close</button>
   </div>
 </div>
 
-<!-- =================== SETTINGS OVERLAY =================== -->
+<!-- SETTINGS OVERLAY -->
 <div class="ov" id="ov-set">
   <div class="ovc">
     <button class="ovcl" onclick="closeOv('ov-set')">×</button>
     <span class="ovt">⚙️ Settings</span>
-    <div class="alert">Your API key is stored only on this device in localStorage. Never share this file with your key in it.</div>
+    <div class="user-row" id="set-user-row" style="display:none;">
+      <img class="user-av" id="set-user-av" src="" alt="">
+      <div style="flex:1;"><div class="user-name" id="set-user-name"></div><div class="user-email" id="set-user-email"></div></div>
+      <span id="set-sync-st" style="font-size:10px;font-family:monospace;color:var(--g2);">☁ synced</span>
+    </div>
+    <div class="alert">🔑 Your Anthropic API key is stored <strong>on this device only</strong> for security. Add it once on each device.</div>
     <div class="ir">
-      <span class="il">Anthropic API Key (for AI food analysis + Steve summaries)</span>
-      <input type="password" id="set-key" placeholder="sk-ant-..." oninput="saveSettings()">
-      <div style="font-size:10px;color:var(--t2);margin-top:5px;">Get your key at console.anthropic.com → API Keys</div>
+      <span class="il">Anthropic API Key</span>
+      <input type="password" id="set-key" placeholder="sk-ant-…" oninput="saveSettings()">
+      <div style="font-size:10px;color:var(--t2);margin-top:5px;">console.anthropic.com → API Keys</div>
     </div>
     <div class="dv"></div>
     <div style="font-size:10px;font-weight:700;color:var(--t2);text-transform:uppercase;letter-spacing:1.5px;font-family:monospace;margin-bottom:10px;">Protocol Targets</div>
@@ -377,19 +375,140 @@ textarea{resize:vertical;min-height:75px;}
       <div class="ir"><span class="il">Calorie Target</span><input type="number" id="set-cal" value="1800" onchange="saveSettings()"></div>
       <div class="ir"><span class="il">Daily Step Goal</span><input type="number" id="set-steps" value="7000" onchange="saveSettings()"></div>
     </div>
+    <div class="dv"></div>
     <button class="btn bg" onclick="closeOv('ov-set')">Save & Close</button>
+    <button class="btn bred" onclick="doSignOut()">Sign Out</button>
   </div>
 </div>
 
 <script>
-// ============================================================
-// CONSTANTS & HISTORICAL DATA
-// ============================================================
-const SOBER_DATE = new Date('2026-03-07T00:00:00');
-const MEALS = ['Breakfast','Lunch','Dinner','Snacks'];
+// ╔══════════════════════════════════════════════════════════╗
+// ║  STEP 1: Replace these values with your Firebase config  ║
+// ║  Get from: console.firebase.google.com                   ║
+// ║  Project Settings → Your Apps → Web App → Config        ║
+// ╚══════════════════════════════════════════════════════════╝
+const FIREBASE_CONFIG = {
+  apiKey:            "REPLACE_YOUR_API_KEY",
+  authDomain:        "REPLACE.firebaseapp.com",
+  projectId:         "REPLACE_PROJECT_ID",
+  storageBucket:     "REPLACE.appspot.com",
+  messagingSenderId: "REPLACE_SENDER_ID",
+  appId:             "REPLACE_APP_ID"
+};
 
-// Pre-loaded MFP historical data (daily totals, imported)
-const MFP = {
+// ── Firebase Init ──────────────────────────────────────────
+let auth, db, UID = null;
+const fbReady = FIREBASE_CONFIG.apiKey !== "REPLACE_YOUR_API_KEY";
+
+if (fbReady) {
+  firebase.initializeApp(FIREBASE_CONFIG);
+  auth = firebase.auth();
+  db   = firebase.firestore();
+} else {
+  document.getElementById('cfg-note').style.display='block';
+  document.querySelector('.auth-btn').style.display='none';
+}
+
+// ── Sync indicator ─────────────────────────────────────────
+let _syncT;
+function showSync(msg='☁ syncing…'){
+  const p=document.getElementById('sync-pill');
+  p.textContent=msg; p.classList.add('show');
+  clearTimeout(_syncT);
+  _syncT=setTimeout(()=>p.classList.remove('show'),2500);
+}
+
+// ═══════════════════════════════════════════════════════════
+// STORAGE — localStorage (instant) + Firestore (cloud sync)
+// ═══════════════════════════════════════════════════════════
+const CLOUD_KEYS=['jh_food','jh_scans','jh_meta']; // settings NOT synced (has API key)
+
+function ld(k,fb={}){try{const v=localStorage.getItem(k);return v?JSON.parse(v):fb;}catch(e){return fb;}}
+
+function sd(k,v){
+  try{localStorage.setItem(k,JSON.stringify(v));}catch(e){}
+  if(UID&&db&&CLOUD_KEYS.includes(k)){
+    showSync();
+    db.collection('users').doc(UID).collection('app').doc(k)
+      .set({v:JSON.stringify(v),ts:firebase.firestore.FieldValue.serverTimestamp()})
+      .then(()=>showSync('☁ saved ✓'))
+      .catch(e=>console.warn('Firestore write:',e));
+  }
+}
+
+async function loadFromCloud(){
+  if(!UID||!db)return;
+  try{
+    showSync('☁ loading…');
+    const snap=await db.collection('users').doc(UID).collection('app').get();
+    snap.forEach(doc=>{
+      const d=doc.data();
+      if(d&&d.v){try{localStorage.setItem(doc.id,d.v);}catch(e){}}
+    });
+    showSync('☁ synced ✓');
+  }catch(e){console.warn('loadFromCloud:',e);}
+}
+
+// Settings stay LOCAL only (contains Anthropic API key)
+function sd_local(k,v){try{localStorage.setItem(k,JSON.stringify(v));}catch(e){}}
+function getSettings(){return ld('jh_set',{key:'',prot:130,sod:1500,cal:1800,steps:7000});}
+function saveSettings(){
+  sd_local('jh_set',{
+    key:document.getElementById('set-key').value,
+    prot:parseInt(document.getElementById('set-prot').value)||130,
+    sod:parseInt(document.getElementById('set-sod').value)||1500,
+    cal:parseInt(document.getElementById('set-cal').value)||1800,
+    steps:parseInt(document.getElementById('set-steps').value)||7000
+  });
+}
+
+// ═══════════════════════════════════════════════════════════
+// AUTH
+// ═══════════════════════════════════════════════════════════
+function signInGoogle(){
+  if(!auth){alert('Configure Firebase first — see setup instructions.');return;}
+  auth.signInWithPopup(new firebase.auth.GoogleAuthProvider())
+    .catch(e=>{document.getElementById('auth-err').textContent=e.message;});
+}
+function doSignOut(){if(auth)auth.signOut();closeOv('ov-set');}
+
+function updateUserUI(user){
+  if(user.photoURL){
+    const a=document.getElementById('hdr-av');
+    a.src=user.photoURL; a.classList.add('show');
+    document.getElementById('set-user-av').src=user.photoURL;
+  }
+  document.getElementById('set-user-row').style.display='flex';
+  document.getElementById('set-user-name').textContent=user.displayName||'James';
+  document.getElementById('set-user-email').textContent=user.email||'';
+}
+
+if(auth){
+  auth.onAuthStateChanged(async user=>{
+    if(user){
+      UID=user.uid;
+      document.getElementById('auth-screen').classList.add('hidden');
+      await loadFromCloud();
+      updateUserUI(user);
+      renderDash();
+    } else {
+      UID=null;
+      document.getElementById('auth-screen').classList.remove('hidden');
+    }
+  });
+} else {
+  // Local-only mode (no Firebase config)
+  document.getElementById('auth-screen').classList.add('hidden');
+  renderDash();
+}
+
+// ═══════════════════════════════════════════════════════════
+// CONSTANTS & DATA
+// ═══════════════════════════════════════════════════════════
+const SOBER_DATE=new Date('2026-03-07T00:00:00');
+const MEALS=['Breakfast','Lunch','Dinner','Snacks'];
+
+const MFP={
   '2026-03-10':{cal:2445,carbs:230,fat:112,protein:137,sodium:4561,fiber:22,sugar:14},
   '2026-03-11':{cal:2832,carbs:303,fat:135,protein:117,sodium:4072,fiber:20,sugar:15},
   '2026-03-12':{cal:2000,carbs:217,fat:93,protein:79,sodium:1749,fiber:25,sugar:19},
@@ -406,714 +525,182 @@ const MFP = {
   '2026-03-23':{cal:511,carbs:28,fat:32,protein:25,sodium:364,fiber:7,sugar:11},
 };
 
-// Pre-loaded Arboleaf scale data
-const SCALES_DEFAULT = {
+const SCALES_DEFAULT={
   '2026-03-22':{weight:234.6,bfPct:31.0,bfLbs:72.8,smLbs:104.2,vf:14,bwPct:49.7,bwL:52.9,bmr:1953,fit:62.1,lbm:161.8,subcutPct:26.8,whr:1.02},
   '2026-03-23':{weight:235.4,bfPct:31.2,bfLbs:73.4,smLbs:104.8,vf:14,bwPct:49.6,bwL:53.0,bmr:1957,fit:61.9,lbm:162.0,subcutPct:27.0,whr:1.03},
+  '2026-03-24':{weight:233.0,bfPct:30.7,bfLbs:71.6,smLbs:104.0,vf:14,bwPct:50.0,bwL:52.9,bmr:1952,fit:62.6,lbm:161.4,subcutPct:26.5,whr:1.02},
 };
 
-// ============================================================
+// ═══════════════════════════════════════════════════════════
 // STATE
-// ============================================================
-let selDate = today();
-let selMeal = 'Breakfast';
-let trendChart = null;
-let scoreChart = null;
-let currentTrend = 'weight';
+// ═══════════════════════════════════════════════════════════
+let selDate=today(),selMeal='Breakfast',trendChart=null,scoreChart=null,currentTrend='weight';
 
-// ============================================================
-// UTILITIES
-// ============================================================
+// ═══════════════════════════════════════════════════════════
+// UTILS
+// ═══════════════════════════════════════════════════════════
 function today(){return new Date().toISOString().split('T')[0];}
-
-function fmtShort(d){
-  const dt=new Date(d+'T12:00:00');
-  return dt.toLocaleDateString('en-CA',{weekday:'short',month:'short',day:'numeric'});
-}
-function fmtLong(d){
-  const dt=new Date(d+'T12:00:00');
-  return dt.toLocaleDateString('en-CA',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
-}
-function soberDays(){
-  return Math.floor((new Date()-SOBER_DATE)/(1000*60*60*24));
-}
-
-// ============================================================
-// STORAGE
-// ============================================================
-function ld(k,fb={}){try{const v=localStorage.getItem(k);return v?JSON.parse(v):fb;}catch(e){return fb;}}
-function sd(k,v){try{localStorage.setItem(k,JSON.stringify(v));}catch(e){}}
-
+function fmtShort(d){const dt=new Date(d+'T12:00:00');return dt.toLocaleDateString('en-CA',{weekday:'short',month:'short',day:'numeric'});}
+function fmtLong(d){const dt=new Date(d+'T12:00:00');return dt.toLocaleDateString('en-CA',{weekday:'long',year:'numeric',month:'long',day:'numeric'});}
+function soberDays(){return Math.floor((new Date()-SOBER_DATE)/(1000*60*60*24));}
 function getFood(){return ld('jh_food',{});}
-function getScans(){return {...SCALES_DEFAULT,...ld('jh_scans',{})};}
+function getScans(){return{...SCALES_DEFAULT,...ld('jh_scans',{})};}
 function getMeta(){return ld('jh_meta',{});}
-function getSettings(){return ld('jh_set',{key:'',prot:130,sod:1500,cal:1800,steps:7000});}
-
 function getDayMeta(d){return getMeta()[d]||{};}
-
 function getDayTotals(d){
-  const food=getFood(); const day=food[d]||{};
+  const food=getFood();const day=food[d]||{};
   let r={cal:0,protein:0,carbs:0,fat:0,sodium:0,fiber:0,sugar:0,vegCups:0,live:false};
-  MEALS.forEach(m=>(day[m]||[]).forEach(e=>{
-    r.cal+=e.calories||0;r.protein+=e.protein||0;r.carbs+=e.carbs||0;
-    r.fat+=e.fat||0;r.sodium+=e.sodium||0;r.fiber+=e.fiber||0;
-    r.sugar+=e.sugar||0;r.vegCups+=e.vegCups||0;r.live=true;
-  }));
-  if(!r.live&&MFP[d]) return {...MFP[d],vegCups:0,live:false};
+  MEALS.forEach(m=>(day[m]||[]).forEach(e=>{r.cal+=e.calories||0;r.protein+=e.protein||0;r.carbs+=e.carbs||0;r.fat+=e.fat||0;r.sodium+=e.sodium||0;r.fiber+=e.fiber||0;r.sugar+=e.sugar||0;r.vegCups+=e.vegCups||0;r.live=true;}));
+  if(!r.live&&MFP[d])return{...MFP[d],vegCups:0,live:false};
   return r;
 }
 
-function getSettings(){return ld('jh_set',{key:'',prot:130,sod:1500,cal:1800,steps:7000});}
-
-// ============================================================
-// PROTOCOL SCORE
-// ============================================================
+// ═══════════════════════════════════════════════════════════
+// SCORE
+// ═══════════════════════════════════════════════════════════
 function calcScore(d){
   const m=getDayMeta(d),t=getDayTotals(d),s=getSettings();
   let score=0;const items=[];
   const add=(lbl,pts,max,st)=>{score+=pts;items.push({lbl,pts,max,st});};
-
   const pp=Math.min(20,Math.round((t.protein/(s.prot||130))*20));
   add(`Protein ${t.protein}g / ${s.prot||130}g`,pp,20,t.protein>=(s.prot||130)?'ok':t.protein>=90?'wn':'bd');
-
   const vp=Math.min(15,Math.round(((t.vegCups||0)/6)*15));
   add(`Veg ${(t.vegCups||0).toFixed(1)} cups / 6`,vp,15,(t.vegCups||0)>=6?'ok':(t.vegCups||0)>=3?'wn':'bd');
-
   const hyd=m.hyd||0;
-  const hp=Math.round((hyd/3)*15);
-  add(`Hydration ${hyd}/3 events`,hp,15,hyd>=3?'ok':hyd>=2?'wn':'bd');
-
+  add(`Hydration ${hyd}/3 events`,Math.round((hyd/3)*15),15,hyd>=3?'ok':hyd>=2?'wn':'bd');
   const sodMax=s.sod||1500;
-  const sp2=t.sodium<=sodMax?15:t.sodium<=2200?8:t.sodium<=3500?3:0;
-  add(`Sodium ${t.sodium}mg / <${sodMax}mg`,sp2,15,t.sodium<=sodMax?'ok':t.sodium<=2200?'wn':'bd');
-
-  const fp=m.fiery?10:0;
-  add('Fiery Ginger Shot',fp,10,m.fiery?'ok':'bd');
-
+  add(`Sodium ${t.sodium}mg / <${sodMax}mg`,t.sodium<=sodMax?15:t.sodium<=2200?8:t.sodium<=3500?3:0,15,t.sodium<=sodMax?'ok':t.sodium<=2200?'wn':'bd');
+  add('Fiery Ginger Shot',m.fiery?10:0,10,m.fiery?'ok':'bd');
   const steps=parseInt(m.steps)||0;
-  const stp=Math.min(10,Math.round((steps/(s.steps||7000))*10));
-  add(`Steps ${steps.toLocaleString()} / ${(s.steps||7000).toLocaleString()}`,stp,10,steps>=(s.steps||7000)?'ok':steps>=4000?'wn':'bd');
-
-  const gfp=m.gf?10:m.gf===false?0:5;
+  add(`Steps ${steps.toLocaleString()} / ${(s.steps||7000).toLocaleString()}`,Math.min(10,Math.round((steps/(s.steps||7000))*10)),10,steps>=(s.steps||7000)?'ok':steps>=4000?'wn':'bd');
   add('Grain-Free Day',m.gf?10:0,10,m.gf?'ok':'wn');
-
   const slp=parseFloat(m.sleep)||0;
-  const slpts=slp>=7?5:Math.round((slp/7)*5);
-  add(`Sleep ${slp||'?'}h / 7h`,slpts,5,slp>=7?'ok':slp>=6?'wn':'bd');
-
+  add(`Sleep ${slp||'?'}h / 7h`,slp>=7?5:Math.round((slp/7)*5),5,slp>=7?'ok':slp>=6?'wn':'bd');
   return{score:Math.min(100,score),items};
 }
 
-// ============================================================
-// BADGE + DELTA HELPERS
-// ============================================================
+// ═══════════════════════════════════════════════════════════
+// HELPERS
+// ═══════════════════════════════════════════════════════════
 function bdg(lbl,cls){return`<span class="bdg ${cls}">${lbl}</span>`;}
-function dlt(curr,prev,unit,lib){
-  if(!prev)return'';
-  const diff=parseFloat((curr-prev).toFixed(1));
-  const isUp=diff>0,isBad=lib?isUp:!isUp&&diff!==0;
-  const cls=diff===0?'ceq':isBad?'cu':'cd2';
-  const arrow=diff===0?'→':isUp?'▲':'▼';
-  return`<span class="cp ${cls}">${arrow}${Math.abs(diff)}${unit}</span>`;
-}
-function mbar(lbl,val,tgt,unit,color){
-  const pct=Math.min(100,Math.round((val/tgt)*100));
-  return`<div class="br"><div class="br-h"><span class="br-l">${lbl}</span><span class="br-v">${val}${unit} <span style="color:var(--t2);font-weight:400;">/ ${tgt}${unit}</span></span></div><div class="br-bg"><div class="br-f" style="width:${pct}%;background:${color};"></div></div></div>`;
-}
-function mc(val,unit,lbl,delta){
-  return`<div class="mc"><div class="mv">${val}<span class="mu">${unit}</span></div><div class="ml">${lbl}</div>${delta?`<div class="md">${delta}</div>`:''}</div>`;
-}
+function dlt(curr,prev,unit,lib){if(!prev)return'';const diff=parseFloat((curr-prev).toFixed(1));const isUp=diff>0,isBad=lib?isUp:(!isUp&&diff!==0);const cls=diff===0?'ceq':isBad?'cu':'cd2';const arrow=diff===0?'→':isUp?'▲':'▼';return`<span class="cp ${cls}">${arrow}${Math.abs(diff)}${unit}</span>`;}
+function mbar(lbl,val,tgt,unit,color){const pct=Math.min(100,Math.round((val/tgt)*100));return`<div class="br"><div class="br-h"><span class="br-l">${lbl}</span><span class="br-v">${val}${unit} <span style="color:var(--t2);font-weight:400;">/ ${tgt}${unit}</span></span></div><div class="br-bg"><div class="br-f" style="width:${pct}%;background:${color};"></div></div></div>`;}
+function mc(val,unit,lbl,delta){return`<div class="mc"><div class="mv">${val}<span class="mu">${unit}</span></div><div class="ml">${lbl}</div>${delta?`<div class="md">${delta}</div>`:''}</div>`;}
 
-// ============================================================
+// ═══════════════════════════════════════════════════════════
 // TAB SWITCHER
-// ============================================================
+// ═══════════════════════════════════════════════════════════
 function switchTab(name,btn){
   document.querySelectorAll('.tab').forEach(t=>t.classList.remove('on'));
   document.querySelectorAll('.nb').forEach(b=>b.classList.remove('on'));
-  document.getElementById('tab-'+name).classList.add('on');
-  btn.classList.add('on');
-  const renders={dash:renderDash,log:renderLog,body:renderBody,trends:renderTrends,score:renderScore};
-  if(renders[name]) renders[name]();
+  document.getElementById('tab-'+name).classList.add('on');btn.classList.add('on');
+  ({dash:renderDash,log:renderLog,body:renderBody,trends:renderTrends,score:renderScore})[name]?.();
 }
 
-// ============================================================
+// ═══════════════════════════════════════════════════════════
 // DASHBOARD
-// ============================================================
+// ═══════════════════════════════════════════════════════════
 function renderDash(){
-  const sd2=soberDays();
-  document.getElementById('hdr-sober').textContent=`Day ${sd2} Sober 🌿`;
-
-  // Sober banner
-  document.getElementById('dash-sober-banner').innerHTML=`<div class="sb">
-    <div><div class="sb-n">${sd2}</div><div class="sb-lbl">Days Without Alcohol</div><div class="sb-tag">SINCE MARCH 7, 2026 · LIVER RECOVERY</div></div>
-    <div style="text-align:right;flex:1;"><div style="font-size:11px;color:rgba(255,255,255,.5);font-family:monospace;text-transform:uppercase;letter-spacing:1px;">Protocol Active</div><div style="font-size:13px;color:rgba(255,255,255,.75);margin-top:6px;">TCM Damp-Heat · VAT</div></div>
-  </div>`;
-
-  const td=today();
+  const days=soberDays();
+  document.getElementById('hdr-sober').textContent=`Day ${days} Sober 🌿`;
+  document.getElementById('dash-sober-banner').innerHTML=`<div class="sb"><div><div class="sb-n">${days}</div><div class="sb-lbl">Days Without Alcohol</div><div class="sb-tag">SINCE MARCH 7, 2026 · LIVER RECOVERY</div></div><div style="text-align:right;flex:1;"><div style="font-size:11px;color:rgba(255,255,255,.5);font-family:monospace;text-transform:uppercase;letter-spacing:1px;">Protocol Active</div><div style="font-size:13px;color:rgba(255,255,255,.75);margin-top:6px;">TCM Damp-Heat · VAT</div></div></div>`;
+  const td=today(),meta=getDayMeta(td),s=getSettings();
   document.getElementById('dash-date-lbl').textContent=fmtShort(td);
-
-  const meta=getDayMeta(td);
   document.getElementById('dash-proto').innerHTML=`
     <div class="pt ${meta.fiery?'on':''}" onclick="toggleMeta('fiery','dash')"><span class="pt-i">🔥</span><span class="pt-t">Fiery Ginger Shot</span><span class="pt-c">${meta.fiery?'✅':'○'}</span></div>
     <div class="pt" style="cursor:default;"><span class="pt-i">💧</span><span class="pt-t">Hydration (${meta.hyd||0}/3)</span><div class="hdots">${[1,2,3].map(n=>`<div class="hdot ${(meta.hyd||0)>=n?'on':''}" onclick="setHyd(${n},'dash')">${(meta.hyd||0)>=n?'✓':n}</div>`).join('')}</div></div>
-    <div class="pt ${(parseInt(meta.steps)||0)>=(getSettings().steps||7000)?'on':''}" onclick="promptSteps()"><span class="pt-i">🚶</span><span class="pt-t">Steps: ${parseInt(meta.steps||0).toLocaleString()} / ${(getSettings().steps||7000).toLocaleString()}</span><span class="pt-c">${(parseInt(meta.steps)||0)>=(getSettings().steps||7000)?'✅':'→'}</span></div>`;
-
-  const t=getDayTotals(td),s=getSettings();
-  document.getElementById('dash-macros').innerHTML=`
-    <div style="text-align:center;margin-bottom:11px;">
-      <span style="font-size:34px;font-weight:700;">${t.cal}</span><span style="font-size:14px;color:var(--t2);"> kcal</span>
-      ${!t.live&&MFP[td]?'<div class="imp-tag">📥 IMPORTED FROM MFP</div>':''}
-    </div>
-    ${mbar('Protein',t.protein,s.prot||130,'g','#1B4332')}
-    ${mbar('Veg',(t.vegCups||0).toFixed(1),6,' cups','#40916C')}
-    ${mbar('Carbs',t.carbs,150,'g','#E76F51')}
-    ${mbar('Fat',t.fat,80,'g','#F4A261')}`;
-
+    <div class="pt ${(parseInt(meta.steps)||0)>=(s.steps||7000)?'on':''}" onclick="promptSteps()"><span class="pt-i">🚶</span><span class="pt-t">Steps: ${parseInt(meta.steps||0).toLocaleString()} / ${(s.steps||7000).toLocaleString()}</span><span class="pt-c">${(parseInt(meta.steps)||0)>=(s.steps||7000)?'✅':'→'}</span></div>`;
+  const t=getDayTotals(td);
+  document.getElementById('dash-macros').innerHTML=`<div style="text-align:center;margin-bottom:11px;"><span style="font-size:34px;font-weight:700;">${t.cal}</span><span style="font-size:14px;color:var(--t2);"> kcal</span>${!t.live&&MFP[td]?'<div class="imp-tag">📥 IMPORTED FROM MFP</div>':''}</div>${mbar('Protein',t.protein,s.prot||130,'g','#1B4332')}${mbar('Veg',(t.vegCups||0).toFixed(1),6,' cups','#40916C')}${mbar('Carbs',t.carbs,150,'g','#E76F51')}${mbar('Fat',t.fat,80,'g','#F4A261')}`;
   const sc=calcScore(td);
-  document.getElementById('dash-badges').innerHTML=`
-    ${bdg('PROTEIN '+t.protein+'g',t.protein>=(s.prot||130)?'ok':t.protein>=90?'wn':'bd')}
-    ${bdg('SODIUM '+t.sodium+'mg',t.sodium<=(s.sod||1500)?'ok':t.sodium<=2200?'wn':'bd')}
-    ${bdg('VEG '+(t.vegCups||0).toFixed(1)+'c',(t.vegCups||0)>=6?'ok':(t.vegCups||0)>=3?'wn':'bd')}
-    ${bdg('SCORE '+sc.score+'/100',sc.score>=75?'ok':sc.score>=50?'wn':'bd')}`;
-
-  const scans=getScans();
-  const sdates=Object.keys(scans).sort().reverse();
+  document.getElementById('dash-badges').innerHTML=`${bdg('PROTEIN '+t.protein+'g',t.protein>=(s.prot||130)?'ok':t.protein>=90?'wn':'bd')}${bdg('SODIUM '+t.sodium+'mg',t.sodium<=(s.sod||1500)?'ok':t.sodium<=2200?'wn':'bd')}${bdg('VEG '+(t.vegCups||0).toFixed(1)+'c',(t.vegCups||0)>=6?'ok':(t.vegCups||0)>=3?'wn':'bd')}${bdg('SCORE '+sc.score+'/100',sc.score>=75?'ok':sc.score>=50?'wn':'bd')}`;
+  const scans=getScans();const sdates=Object.keys(scans).sort().reverse();
   if(sdates.length>0){
     const la=scans[sdates[0]],pr=sdates.length>1?scans[sdates[1]]:null;
-    document.getElementById('dash-scan').innerHTML=`
-      <div style="font-size:10px;color:var(--t2);font-family:monospace;margin-bottom:10px;">AS OF ${fmtShort(sdates[0]).toUpperCase()}</div>
-      <div class="g2">
-        ${mc(la.weight,'lbs','Weight',pr?dlt(la.weight,pr.weight,'lbs',true):'')}
-        ${mc(la.bfPct,'%','Body Fat',pr?dlt(la.bfPct,pr.bfPct,'%',true):'')}
-        ${mc(la.smLbs,'lbs','Skeletal Muscle',pr?dlt(la.smLbs,pr.smLbs,'lbs',false):'')}
-        ${mc('Grade '+la.vf,'','Visceral Fat','')}
-        ${mc(la.bwPct,'%','Body Water',pr?dlt(la.bwPct,pr.bwPct,'%',false):'')}
-        ${mc(la.fit+'/100','','Fitness Score',pr?dlt(la.fit,pr.fit,'',false):'')}
-      </div>`;
-  } else {
-    document.getElementById('dash-scan').innerHTML='<div style="color:var(--t2);font-size:13px;">No scan data yet — add via Body tab.</div>';
-  }
+    document.getElementById('dash-scan').innerHTML=`<div style="font-size:10px;color:var(--t2);font-family:monospace;margin-bottom:10px;">AS OF ${fmtShort(sdates[0]).toUpperCase()}</div><div class="g2">${mc(la.weight,'lbs','Weight',pr?dlt(la.weight,pr.weight,'lbs',true):'')}${mc(la.bfPct,'%','Body Fat',pr?dlt(la.bfPct,pr.bfPct,'%',true):'')}${mc(la.smLbs,'lbs','Skeletal Muscle',pr?dlt(la.smLbs,pr.smLbs,'lbs',false):'')}${mc('Grade '+la.vf,'','Visceral Fat','')}${mc(la.bwPct,'%','Body Water',pr?dlt(la.bwPct,pr.bwPct,'%',false):'')}${mc(la.fit+'/100','','Fitness Score',pr?dlt(la.fit,pr.fit,'',false):'')}</div>`;
+  }else{document.getElementById('dash-scan').innerHTML='<div style="color:var(--t2);font-size:13px;">No scan data — add via Body tab.</div>';}
 }
 
-// ============================================================
+// ═══════════════════════════════════════════════════════════
 // LOG
-// ============================================================
+// ═══════════════════════════════════════════════════════════
 function renderLog(){buildCal();buildMeta();buildMeals();}
-
 function buildCal(){
-  const food=getFood();
-  const days=[];
-  const now=new Date();
-  for(let i=18;i>=-1;i--){const d=new Date(now);d.setDate(d.getDate()-i);days.push(d.toISOString().split('T')[0]);}
-  document.getElementById('cal').innerHTML=days.map(d=>{
-    const dt=new Date(d+'T12:00:00');
-    const has=food[d]||MFP[d];
-    const isSel=d===selDate;
-    return`<div class="cd ${isSel?'sel':''} ${has&&!isSel?'has':''}" onclick="pickDate('${d}')">
-      <span class="cd-d">${dt.toLocaleDateString('en',{weekday:'short'})}</span>
-      <span class="cd-n">${dt.getDate()}</span>
-      ${has?'<div class="cd-dot"></div>':'<div style="height:6px;"></div>'}
-    </div>`;
-  }).join('');
+  const food=getFood();const days=[];const now=new Date();
+  for(let i=20;i>=-1;i--){const d=new Date(now);d.setDate(d.getDate()-i);days.push(d.toISOString().split('T')[0]);}
+  document.getElementById('cal').innerHTML=days.map(d=>{const dt=new Date(d+'T12:00:00');const has=food[d]||MFP[d];const isSel=d===selDate;return`<div class="cd ${isSel?'sel':''} ${has&&!isSel?'has':''}" onclick="pickDate('${d}')"><span class="cd-d">${dt.toLocaleDateString('en',{weekday:'short'})}</span><span class="cd-n">${dt.getDate()}</span>${has?'<div class="cd-dot"></div>':'<div style="height:6px;"></div>'}</div>`;}).join('');
   setTimeout(()=>{const s=document.querySelector('.cd.sel');if(s)s.scrollIntoView({inline:'center',block:'nearest',behavior:'smooth'});},80);
 }
-
 function pickDate(d){selDate=d;buildCal();buildMeta();buildMeals();}
-
 function buildMeta(){
   const m=getDayMeta(selDate);
   document.getElementById('log-proto').innerHTML=`
     <div class="pt ${m.fiery?'on':''}" onclick="toggleMeta('fiery','log')"><span class="pt-i">🔥</span><span class="pt-t">Fiery Ginger Shot</span><span class="pt-c">${m.fiery?'✅':'○'}</span></div>
-    <div style="display:flex;align-items:center;gap:10px;padding:8px 0;">
-      <span class="pt-i">💧</span><span class="pt-t" style="font-size:13px;">Hydration Events</span>
-      <div class="hdots">${[1,2,3].map(n=>`<div class="hdot ${(m.hyd||0)>=n?'on':''}" onclick="setHyd(${n},'log')">${(m.hyd||0)>=n?'✓':n}</div>`).join('')}</div>
-    </div>
-    <div style="display:flex;align-items:center;gap:10px;margin-bottom:7px;">
-      <span class="pt-i">🚶</span>
-      <input type="number" placeholder="Steps today" value="${m.steps||''}" style="flex:1;" oninput="setVal('steps',this.value)">
-    </div>
-    <div style="display:flex;align-items:center;gap:10px;margin-bottom:7px;">
-      <span class="pt-i">😴</span>
-      <input type="number" step="0.5" placeholder="Hours of sleep" value="${m.sleep||''}" style="flex:1;" oninput="setVal('sleep',this.value)">
-    </div>
+    <div style="display:flex;align-items:center;gap:10px;padding:8px 0;"><span class="pt-i">💧</span><span class="pt-t" style="font-size:13px;">Hydration Events</span><div class="hdots">${[1,2,3].map(n=>`<div class="hdot ${(m.hyd||0)>=n?'on':''}" onclick="setHyd(${n},'log')">${(m.hyd||0)>=n?'✓':n}</div>`).join('')}</div></div>
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:7px;"><span class="pt-i">🚶</span><input type="number" placeholder="Steps today" value="${m.steps||''}" style="flex:1;" oninput="setVal('steps',this.value)"></div>
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:7px;"><span class="pt-i">😴</span><input type="number" step="0.5" placeholder="Hours of sleep" value="${m.sleep||''}" style="flex:1;" oninput="setVal('sleep',this.value)"></div>
     <div class="pt ${m.gf?'on':''}" onclick="toggleMeta('gf','log')"><span class="pt-i">🌾</span><span class="pt-t">Grain-Free Day</span><span class="pt-c">${m.gf?'✅':'○'}</span></div>`;
   document.getElementById('log-notes').value=m.notes||'';
 }
-
 function buildMeals(){
-  const food=getFood();
-  const day=food[selDate]||{};
-  const t=getDayTotals(selDate);
-  let html='';
-  const hasLive=MEALS.some(m=>(day[m]||[]).length>0);
-
-  if(MFP[selDate]&&!hasLive){
-    const mfp=MFP[selDate];
-    html+=`<div class="card" style="border-left:3px solid var(--g2);">
-      <div class="imp-tag">📥 Imported from MyFitnessPal</div>
-      <div class="g2">
-        ${mc(mfp.cal,'','Calories','')}${mc(mfp.protein+'g','','Protein','')}
-        ${mc(mfp.carbs+'g','','Carbs','')}${mc(mfp.fat+'g','','Fat','')}
-        ${mc(mfp.sodium+'mg','','Sodium','')}${mc(mfp.fiber+'g','','Fiber','')}
-      </div>
-      <div style="font-size:11px;color:var(--t2);margin-top:8px;">Add food items below to override with live data.</div>
-    </div>`;
-  }
-
-  MEALS.forEach(m=>{
-    const entries=day[m]||[];
-    if(!entries.length)return;
-    const mc2=entries.reduce((a,e)=>a+(e.calories||0),0);
-    const mp=entries.reduce((a,e)=>a+(e.protein||0),0);
-    html+=`<div class="card"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:9px;"><span style="font-size:14px;font-weight:700;">${m}</span><span style="font-size:12px;color:var(--t2);">${mc2} cal · ${mp}g prot</span></div>
-      ${entries.map(e=>`<div class="fe">
-        <div style="flex:1;padding-right:8px;"><div class="fe-n">${e.name}${e.est?'<span style="color:var(--t2);font-size:10px;"> (est.)</span>':''}</div><div class="fe-m">P:${e.protein}g C:${e.carbs}g F:${e.fat}g Na:${e.sodium}mg${(e.vegCups||0)>0?' 🥦'+e.vegCups+'c':''}</div></div>
-        <div style="display:flex;align-items:center;flex-shrink:0;"><span class="fe-c">${e.calories}</span><button class="fe-d" onclick="delFood('${m}',${e.id})">×</button></div>
-      </div>`).join('')}
-    </div>`;
-  });
-
-  if(hasLive){
-    html+=`<div class="card" style="background:var(--g3);border-color:var(--g2);">
-      <div class="clbl" style="color:var(--g1);margin-bottom:9px;">Day Total (Live)</div>
-      <div class="g2">
-        ${mc(t.cal,'','Calories','')}${mc(t.protein+'g','','Protein','')}
-        ${mc(t.sodium+'mg','','Sodium','')}${mc((t.vegCups||0).toFixed(1)+'c','','Veg','')}
-      </div>
-    </div>`;
-  }
-
-  if(!html) html=`<div class="card"><div style="color:var(--t2);font-size:13px;text-align:center;padding:6px;">No food logged yet.</div></div>`;
+  const food=getFood();const day=food[selDate]||{};const t=getDayTotals(selDate);
+  let html='';const hasLive=MEALS.some(m=>(day[m]||[]).length>0);
+  if(MFP[selDate]&&!hasLive){const mfp=MFP[selDate];html+=`<div class="card" style="border-left:3px solid var(--g2);"><div class="imp-tag">📥 Imported from MyFitnessPal</div><div class="g2">${mc(mfp.cal,'','Calories','')}${mc(mfp.protein+'g','','Protein','')}${mc(mfp.carbs+'g','','Carbs','')}${mc(mfp.fat+'g','','Fat','')}${mc(mfp.sodium+'mg','','Sodium','')}${mc(mfp.fiber+'g','','Fiber','')}</div><div style="font-size:11px;color:var(--t2);margin-top:8px;">Add food below to override with live data.</div></div>`;}
+  MEALS.forEach(m=>{const entries=day[m]||[];if(!entries.length)return;const mc2=entries.reduce((a,e)=>a+(e.calories||0),0);const mp=entries.reduce((a,e)=>a+(e.protein||0),0);html+=`<div class="card"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:9px;"><span style="font-size:14px;font-weight:700;">${m}</span><span style="font-size:12px;color:var(--t2);">${mc2} cal · ${mp}g prot</span></div>${entries.map(e=>`<div class="fe"><div style="flex:1;padding-right:8px;"><div class="fe-n">${e.name}${e.est?'<span style="color:var(--t2);font-size:10px;"> (est.)</span>':''}</div><div class="fe-m">P:${e.protein}g C:${e.carbs}g F:${e.fat}g Na:${e.sodium}mg${(e.vegCups||0)>0?' 🥦'+e.vegCups+'c':''}</div></div><div style="display:flex;align-items:center;flex-shrink:0;"><span class="fe-c">${e.calories}</span><button class="fe-d" onclick="delFood('${m}',${e.id})">×</button></div></div>`).join('')}</div>`;});
+  if(hasLive)html+=`<div class="card" style="background:var(--g3);border-color:var(--g2);"><div class="clbl" style="color:var(--g1);margin-bottom:9px;">Day Total (Live)</div><div class="g2">${mc(t.cal,'','Calories','')}${mc(t.protein+'g','','Protein','')}${mc(t.sodium+'mg','','Sodium','')}${mc((t.vegCups||0).toFixed(1)+'c','','Veg','')}</div></div>`;
+  if(!html)html=`<div class="card"><div style="color:var(--t2);font-size:13px;text-align:center;padding:6px;">No food logged yet.</div></div>`;
   document.getElementById('log-meals').innerHTML=html;
 }
-
-function setMeal(m,btn){
-  selMeal=m;
-  document.querySelectorAll('#meal-tabs .stab').forEach(b=>b.classList.remove('on'));
-  btn.classList.add('on');
-}
-
-async function addFood(){
-  const val=document.getElementById('finput').value.trim();
-  if(!val)return;
-  await qadd(val);
-  document.getElementById('finput').value='';
-}
-
+function setMeal(m,btn){selMeal=m;document.querySelectorAll('#meal-tabs .stab').forEach(b=>b.classList.remove('on'));btn.classList.add('on');}
+async function addFood(){const val=document.getElementById('finput').value.trim();if(!val)return;await qadd(val);document.getElementById('finput').value='';}
 async function qadd(str){
-  const btn=document.getElementById('addbtn');
-  const st=document.getElementById('add-status');
-  btn.disabled=true;btn.innerHTML='<span class="spin"></span>';
-  st.textContent='Analyzing...';
+  const btn=document.getElementById('addbtn'),st=document.getElementById('add-status');
+  btn.disabled=true;btn.innerHTML='<span class="spin"></span>';st.textContent='Analyzing…';
   const s=getSettings();
   try{
-    if(!s.key){
-      const entry={id:Date.now(),name:str,calories:150,protein:15,carbs:10,fat:7,sodium:150,fiber:2,sugar:1,vegCups:0,est:true};
-      saveEntry(entry);
-      st.textContent='⚠️ No API key — estimated values used. Add key in Settings.';
-    } else {
-      const res=await fetch('https://api.anthropic.com/v1/messages',{
-        method:'POST',
-        headers:{'Content-Type':'application/json','x-api-key':s.key,'anthropic-version':'2023-06-01'},
-        body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:400,messages:[{role:'user',content:`Analyze this food item and return ONLY a JSON object (no markdown, no explanation, no backticks):\n"${str}"\nReturn exactly: {"name":"display name","calories":number,"protein":number,"carbs":number,"fat":number,"sodium":number,"fiber":number,"sugar":number,"vegCups":number}\nvegCups = estimated cups of vegetables. All numbers as realistic estimates. sodium in mg.`}]})
-      });
-      const data=await res.json();
-      const text=data.content?.map(i=>i.text||'').join('')||'';
+    if(!s.key){saveEntry({id:Date.now(),name:str,calories:150,protein:15,carbs:10,fat:7,sodium:150,fiber:2,sugar:1,vegCups:0,est:true});st.textContent='⚠️ No API key — estimated values. Add in Settings.';}
+    else{
+      const res=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json','x-api-key':s.key,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:400,messages:[{role:'user',content:`Analyze this food and return ONLY valid JSON:\n"${str}"\n{"name":"display name","calories":N,"protein":N,"carbs":N,"fat":N,"sodium":N,"fiber":N,"sugar":N,"vegCups":N}\nAll numbers realistic. sodium in mg. vegCups = estimated cups of vegetables.`}]})});
+      const data=await res.json();const text=data.content?.map(i=>i.text||'').join('')||'';
       const parsed=JSON.parse(text.replace(/```[a-z]*|```/g,'').trim());
       saveEntry({...parsed,id:Date.now(),est:false});
       st.textContent=`✓ Added: ${parsed.name} (${parsed.calories} cal, ${parsed.protein}g protein)`;
     }
-  }catch(e){st.textContent='✗ Error — try again or check API key.';}
+  }catch(e){st.textContent='✗ Error — check API key.';}
   btn.disabled=false;btn.innerHTML='+';
-  setTimeout(()=>{st.textContent='';},4000);
+  setTimeout(()=>{st.textContent='';},4500);
 }
-
-function saveEntry(e){
-  const food=getFood();
-  if(!food[selDate])food[selDate]={};
-  if(!food[selDate][selMeal])food[selDate][selMeal]=[];
-  food[selDate][selMeal].push(e);
-  sd('jh_food',food);buildMeals();
-}
-
-function delFood(m,id){
-  const food=getFood();
-  if(food[selDate]&&food[selDate][m]){
-    food[selDate][m]=food[selDate][m].filter(e=>e.id!==id);
-    sd('jh_food',food);buildMeals();
-  }
-}
-
-function toggleMeta(k,src){
-  const meta=getMeta();
-  if(!meta[selDate])meta[selDate]={};
-  meta[selDate][k]=!meta[selDate][k];
-  sd('jh_meta',meta);
-  if(src==='log')buildMeta();
-  else renderDash();
-}
-
-function setHyd(n,src){
-  const meta=getMeta();
-  if(!meta[selDate])meta[selDate]={};
-  meta[selDate].hyd=meta[selDate].hyd===n?n-1:n;
-  sd('jh_meta',meta);
-  if(src==='log')buildMeta();
-  else renderDash();
-}
-
-function setVal(k,v){
-  const meta=getMeta();
-  if(!meta[selDate])meta[selDate]={};
-  meta[selDate][k]=v;
-  sd('jh_meta',meta);
-}
-
+function saveEntry(e){const food=getFood();if(!food[selDate])food[selDate]={};if(!food[selDate][selMeal])food[selDate][selMeal]=[];food[selDate][selMeal].push(e);sd('jh_food',food);buildMeals();}
+function delFood(m,id){const food=getFood();if(food[selDate]&&food[selDate][m]){food[selDate][m]=food[selDate][m].filter(e=>e.id!==id);sd('jh_food',food);buildMeals();}}
+function toggleMeta(k,src){const meta=getMeta();if(!meta[selDate])meta[selDate]={};meta[selDate][k]=!meta[selDate][k];sd('jh_meta',meta);if(src==='log')buildMeta();else renderDash();}
+function setHyd(n,src){const meta=getMeta();if(!meta[selDate])meta[selDate]={};meta[selDate].hyd=meta[selDate].hyd===n?n-1:n;sd('jh_meta',meta);if(src==='log')buildMeta();else renderDash();}
+function setVal(k,v){const meta=getMeta();if(!meta[selDate])meta[selDate]={};meta[selDate][k]=v;sd('jh_meta',meta);}
 function saveNotes(){setVal('notes',document.getElementById('log-notes').value);}
+function promptSteps(){const v=prompt('Steps today?');if(v){const meta=getMeta();const td=today();if(!meta[td])meta[td]={};meta[td].steps=v;sd('jh_meta',meta);renderDash();}}
 
-function promptSteps(){
-  const v=prompt('How many steps today?');
-  if(v){
-    const meta=getMeta();const td=today();
-    if(!meta[td])meta[td]={};
-    meta[td].steps=v;sd('jh_meta',meta);renderDash();
-  }
-}
-
-// ============================================================
+// ═══════════════════════════════════════════════════════════
 // BODY
-// ============================================================
+// ═══════════════════════════════════════════════════════════
 function renderBody(){
   document.getElementById('s-date').value=today();
-  const scans=getScans();
-  const sdates=Object.keys(scans).sort().reverse();
-
-  // History
+  const scans=getScans();const sdates=Object.keys(scans).sort().reverse();
   let hist='<div style="color:var(--t2);font-size:13px;">No scan data.</div>';
-  if(sdates.length>0){
-    hist=sdates.map((d,i)=>{
-      const s=scans[d],pr=i<sdates.length-1?scans[sdates[i+1]]:null;
-      return`<div style="padding-bottom:14px;margin-bottom:14px;border-bottom:1px solid var(--bdr);">
-        <div style="font-size:10px;color:var(--t2);font-family:monospace;text-transform:uppercase;margin-bottom:9px;">${fmtLong(d)}</div>
-        <div class="g3">
-          ${mc(s.weight,'lbs','Weight',pr?dlt(s.weight,pr.weight,'',true):'')}
-          ${mc(s.bfPct+'%','','Body Fat',pr?dlt(s.bfPct,pr.bfPct,'%',true):'')}
-          ${mc('G'+s.vf,'','Visceral Fat','')}
-          ${mc(s.smLbs,'lbs','Muscle',pr?dlt(s.smLbs,pr.smLbs,'',false):'')}
-          ${mc(s.bwPct+'%','','Body Water',pr?dlt(s.bwPct,pr.bwPct,'%',false):'')}
-          ${mc(s.fit,'','Fitness',pr?dlt(s.fit,pr.fit,'',false):'')}
-        </div>
-      </div>`;
-    }).join('');
-  }
+  if(sdates.length>0){hist=sdates.map((d,i)=>{const s=scans[d],pr=i<sdates.length-1?scans[sdates[i+1]]:null;return`<div style="padding-bottom:14px;margin-bottom:14px;border-bottom:1px solid var(--bdr);"><div style="font-size:10px;color:var(--t2);font-family:monospace;text-transform:uppercase;margin-bottom:9px;">${fmtLong(d)}</div><div class="g3">${mc(s.weight,'lbs','Weight',pr?dlt(s.weight,pr.weight,'',true):'')}${mc(s.bfPct+'%','','Body Fat',pr?dlt(s.bfPct,pr.bfPct,'%',true):'')}${mc('G'+s.vf,'','Visceral Fat','')}${mc(s.smLbs,'lbs','Muscle',pr?dlt(s.smLbs,pr.smLbs,'',false):'')}${mc(s.bwPct+'%','','Body Water',pr?dlt(s.bwPct,pr.bwPct,'%',false):'')}${mc(s.fit,'','Fitness',pr?dlt(s.fit,pr.fit,'',false):'')}</div></div>`;}).join('');}
   document.getElementById('scan-hist').innerHTML=hist;
-
-  // Compare
   let cmp='<div style="color:var(--t2);font-size:13px;">Need 2+ scans to compare.</div>';
-  if(sdates.length>=2){
-    const a=scans[sdates[0]],b=scans[sdates[1]];
-    const rows=[
-      ['Weight','weight','lbs',true],['Body Fat %','bfPct','%',true],
-      ['Body Fat (lbs)','bfLbs','lbs',true],['Skeletal Muscle','smLbs','lbs',false],
-      ['Visceral Fat Grade','vf','',true],['Body Water %','bwPct','%',false],
-      ['BMR','bmr','kcal',false],['Fitness Score','fit','',false]
-    ];
-    cmp=`<div style="font-size:10px;color:var(--t2);font-family:monospace;margin-bottom:10px;">${fmtShort(sdates[1])} → ${fmtShort(sdates[0])}</div>
-    ${rows.map(([l,k,u,lib])=>`<div class="tv"><span class="tv-l">${l}</span><div style="display:flex;align-items:center;gap:8px;"><span class="tv-v">${a[k]||'—'}${u}</span>${b[k]?dlt(a[k],b[k],u,lib):''}</div></div>`).join('')}`;
-  }
+  if(sdates.length>=2){const a=scans[sdates[0]],b=scans[sdates[1]];const rows=[['Weight','weight','lbs',true],['Body Fat %','bfPct','%',true],['Body Fat (lbs)','bfLbs','lbs',true],['Skeletal Muscle','smLbs','lbs',false],['Visceral Fat Grade','vf','',true],['Body Water %','bwPct','%',false],['BMR','bmr','kcal',false],['Fitness Score','fit','',false]];cmp=`<div style="font-size:10px;color:var(--t2);font-family:monospace;margin-bottom:10px;">${fmtShort(sdates[1])} → ${fmtShort(sdates[0])}</div>${rows.map(([l,k,u,lib])=>`<div class="tv"><span class="tv-l">${l}</span><div style="display:flex;align-items:center;gap:8px;"><span class="tv-v">${a[k]||'—'}${u}</span>${b[k]?dlt(a[k],b[k],u,lib):''}</div></div>`).join('')}`;}
   document.getElementById('scan-cmp').innerHTML=cmp;
 }
-
-function saveScan(){
-  const d=document.getElementById('s-date').value;
-  if(!d){alert('Select a date');return;}
-  const wt=parseFloat(document.getElementById('s-wt').value)||0;
-  const bf=parseFloat(document.getElementById('s-bf').value)||0;
-  const extra=window._parsedScan&&window._parsedScan.date===d?window._parsedScan:{};
-  const scan={
-    weight:wt,bfPct:bf,bfLbs:extra.bfLbs||parseFloat((wt*bf/100).toFixed(1)),
-    smLbs:parseFloat(document.getElementById('s-sm').value)||0,
-    vf:parseFloat(document.getElementById('s-vf').value)||0,
-    bwPct:parseFloat(document.getElementById('s-bw').value)||0,
-    bwL:extra.bwL||0,
-    bmr:parseInt(document.getElementById('s-bmr').value)||0,
-    fit:parseFloat(document.getElementById('s-fit').value)||0,
-    lbm:extra.lbm||0,subcutPct:extra.subcutPct||0,whr:extra.whr||0
-  };
-  const stored=ld('jh_scans',{});stored[d]=scan;sd('jh_scans',stored);
-  window._parsedScan=null;
-  ['s-wt','s-bf','s-sm','s-vf','s-bw','s-bmr','s-fit'].forEach(id=>document.getElementById(id).value='');
-  document.getElementById('pdf-status').textContent='';
-  renderBody();alert('Scan saved ✓');
-}
-
-// ============================================================
-// TRENDS
-// ============================================================
-function showTrend(type,btn){
-  currentTrend=type;
-  document.querySelectorAll('#tab-trends .stab').forEach(b=>b.classList.remove('on'));
-  btn.classList.add('on');
-  renderTrends();
-}
-
-function renderTrends(){
-  const scans=getScans();
-  const sdates=Object.keys(scans).sort();
-
-  // Build food date range (last 20 days)
-  const now=new Date();
-  const fdates=[];
-  for(let i=20;i>=0;i--){const d=new Date(now);d.setDate(d.getDate()-i);fdates.push(d.toISOString().split('T')[0]);}
-  const food=fdates.map(d=>({d,...getDayTotals(d)})).filter(x=>x.cal>0);
-
-  let data,title,stats='';
-  if(trendChart){trendChart.destroy();trendChart=null;}
-  const ctx=document.getElementById('tchart').getContext('2d');
-
-  if(currentTrend==='weight'){
-    title='Weight Trend (lbs)';
-    const lbs=sdates.map(d=>scans[d].weight);
-    data={labels:sdates.map(d=>fmtShort(d)),datasets:[{label:'Weight (lbs)',data:lbs,borderColor:'#1B4332',backgroundColor:'rgba(27,67,50,0.08)',tension:0.3,fill:true,pointBackgroundColor:'#1B4332',pointRadius:5}]};
-    if(lbs.length>=2){const ch=lbs[lbs.length-1]-lbs[0];stats=`<div class="tv"><span class="tv-l">Start</span><span class="tv-v">${lbs[0]} lbs</span></div><div class="tv"><span class="tv-l">Current</span><span class="tv-v">${lbs[lbs.length-1]} lbs</span></div><div class="tv"><span class="tv-l">Change</span><span class="tv-v">${ch>0?'+':''}${ch.toFixed(1)} lbs ${ch<0?'✅':'⚠️'}</span></div><div class="tv"><span class="tv-l">To 201.4lb Goal</span><span class="tv-v">${(lbs[lbs.length-1]-201.4).toFixed(1)} lbs remaining</span></div>`;}
-  } else if(currentTrend==='bodyfat'){
-    title='Body Fat & Visceral Fat';
-    data={labels:sdates.map(d=>fmtShort(d)),datasets:[
-      {label:'Body Fat %',data:sdates.map(d=>scans[d].bfPct),borderColor:'#E76F51',backgroundColor:'rgba(231,111,81,0.08)',tension:0.3,fill:true,pointBackgroundColor:'#E76F51',pointRadius:5,yAxisID:'y'},
-      {label:'Visceral Fat Grade',data:sdates.map(d=>scans[d].vf),borderColor:'#DC2626',borderDash:[5,5],tension:0.3,fill:false,pointBackgroundColor:'#DC2626',pointRadius:5,yAxisID:'y2'}
-    ]};
-    stats=`<div class="tv"><span class="tv-l">Body Fat %</span><span class="tv-v">${sdates.length?scans[sdates[sdates.length-1]].bfPct+'% (target: 20–25%)':"—"}</span></div><div class="tv"><span class="tv-l">Visceral Fat Grade</span><span class="tv-v">${sdates.length?scans[sdates[sdates.length-1]].vf+' (target: &lt;10)':"—"}</span></div>`;
-  } else if(currentTrend==='muscle'){
-    title='Skeletal Muscle (lbs)';
-    data={labels:sdates.map(d=>fmtShort(d)),datasets:[{label:'Skeletal Muscle (lbs)',data:sdates.map(d=>scans[d].smLbs),borderColor:'#40916C',backgroundColor:'rgba(64,145,108,0.08)',tension:0.3,fill:true,pointBackgroundColor:'#40916C',pointRadius:5}]};
-    if(sdates.length) stats=`<div class="tv"><span class="tv-l">Current Muscle</span><span class="tv-v">${scans[sdates[sdates.length-1]].smLbs} lbs</span></div><div class="tv"><span class="tv-l">Normal Range</span><span class="tv-v">69.6–85 lbs (you're elite 💪)</span></div>`;
-  } else if(currentTrend==='protein'){
-    title='Daily Protein (g)';
-    const vals=food.map(x=>x.protein);
-    data={labels:food.map(x=>fmtShort(x.d)),datasets:[{label:'Protein (g)',data:vals,backgroundColor:vals.map(v=>v>=130?'rgba(27,67,50,0.85)':'rgba(231,111,81,0.7)'),borderRadius:5}]};
-    if(vals.length){const avg=Math.round(vals.reduce((a,b)=>a+b,0)/vals.length),hit=vals.filter(v=>v>=130).length;
-    stats=`<div class="tv"><span class="tv-l">Average</span><span class="tv-v">${avg}g/day</span></div><div class="tv"><span class="tv-l">Days ≥130g</span><span class="tv-v">${hit}/${vals.length} ${bdg(Math.round(hit/vals.length*100)+'%',hit/vals.length>=0.6?'ok':'wn')}</span></div><div class="tv"><span class="tv-l">Best Day</span><span class="tv-v">${Math.max(...vals)}g</span></div>`;}
-  } else if(currentTrend==='calories'){
-    title='Daily Calories';
-    const vals=food.map(x=>x.cal);
-    data={labels:food.map(x=>fmtShort(x.d)),datasets:[{label:'Calories',data:vals,backgroundColor:'rgba(64,145,108,0.75)',borderRadius:5}]};
-    if(vals.length){const avg=Math.round(vals.reduce((a,b)=>a+b,0)/vals.length);
-    stats=`<div class="tv"><span class="tv-l">Average</span><span class="tv-v">${avg} kcal/day</span></div><div class="tv"><span class="tv-l">Target Range</span><span class="tv-v">1,600–1,800 kcal</span></div><div class="tv"><span class="tv-l">Range</span><span class="tv-v">${Math.min(...vals)}–${Math.max(...vals)} kcal</span></div>`;}
-  } else if(currentTrend==='sodium'){
-    title='Daily Sodium (mg)';
-    const vals=food.map(x=>x.sodium);
-    data={labels:food.map(x=>fmtShort(x.d)),datasets:[{label:'Sodium (mg)',data:vals,backgroundColor:vals.map(v=>v<=1500?'rgba(27,67,50,0.8)':v<=2500?'rgba(217,119,6,0.75)':'rgba(220,38,38,0.75)'),borderRadius:5}]};
-    if(vals.length){const avg=Math.round(vals.reduce((a,b)=>a+b,0)/vals.length),ok=vals.filter(v=>v<=1500).length;
-    stats=`<div class="tv"><span class="tv-l">Average</span><span class="tv-v">${avg}mg/day</span></div><div class="tv"><span class="tv-l">Days under 1,500mg</span><span class="tv-v">${ok}/${vals.length} ${bdg(ok+'/'+vals.length,ok/vals.length>=0.5?'ok':'wn')}</span></div><div class="tv"><span class="tv-l">Trend</span><span class="tv-v">${vals[vals.length-1]<vals[0]?'📉 Improving':'📈 Watch sodium'}</span></div>`;}
-  }
-
-  document.getElementById('trend-title').textContent=title;
-  document.getElementById('trend-stats').innerHTML=stats;
-
-  const isBar=['protein','calories','sodium'].includes(currentTrend);
-  const isTwoAxis=currentTrend==='bodyfat';
-
-  if(data&&data.labels.length>0){
-    const opts={
-      responsive:true,maintainAspectRatio:false,
-      plugins:{legend:{display:data.datasets.length>1||currentTrend==='bodyfat',labels:{font:{family:'Georgia',size:10},color:'#6B7280',boxWidth:12}}},
-      scales:{x:{ticks:{font:{family:'monospace',size:8},color:'#9CA3AF',maxRotation:40},grid:{display:false}},y:{ticks:{font:{family:'monospace',size:9},color:'#9CA3AF'},grid:{color:'rgba(0,0,0,0.04)'}}}
-    };
-    if(isTwoAxis){opts.scales.y2={type:'linear',position:'right',ticks:{font:{family:'monospace',size:9},color:'#DC2626'},grid:{display:false}};}
-    trendChart=new Chart(ctx,{type:isBar?'bar':'line',data,options:opts});
-  } else {
-    ctx.clearRect(0,0,ctx.canvas.width,ctx.canvas.height);
-    ctx.fillStyle='#9CA3AF';ctx.font='13px Georgia';ctx.textAlign='center';
-    ctx.fillText('Keep logging — your trends will appear here!',ctx.canvas.width/2,90);
-  }
-
-  // Milestones
-  const latestScan=sdates.length?scans[sdates[sdates.length-1]]:null;
-  if(latestScan){
-    document.getElementById('t-cw').textContent=latestScan.weight+' lbs';
-    document.getElementById('t-goal').textContent=(latestScan.weight-201.4).toFixed(1)+' lbs to go';
-    document.getElementById('t-vf').textContent='Grade '+latestScan.vf+' → Target: <10';
-  }
-  document.getElementById('t-sober').textContent=`March 7, 2026 (Day ${soberDays()})`;
-}
-
-// ============================================================
-// SCORE
-// ============================================================
-function renderScore(){
-  const td=today();
-  const {score,items}=calcScore(td);
-
-  // Ring
-  const arc=document.getElementById('ring-arc');
-  const circ=295.3;
-  arc.style.strokeDashoffset=circ-(score/100)*circ;
-  arc.style.stroke=score>=75?'#40916C':score>=50?'#D97706':'#DC2626';
-  document.getElementById('score-num').textContent=score;
-
-  document.getElementById('score-items').innerHTML=items.map(x=>
-    `<div class="si"><span class="si-l">${x.lbl}</span><span class="si-p" style="color:${x.st==='ok'?'var(--em)':x.st==='wn'?'var(--amber)':'var(--red)'};">${x.pts}/${x.max}</span></div>`
-  ).join('');
-
-  // Weekly avgs
-  const last7=[];
-  for(let i=6;i>=0;i--){const d=new Date();d.setDate(d.getDate()-i);last7.push(d.toISOString().split('T')[0]);}
-  const w=last7.map(d=>getDayTotals(d));
-  const avgP=Math.round(w.reduce((a,t)=>a+t.protein,0)/7);
-  const avgC=Math.round(w.reduce((a,t)=>a+t.cal,0)/7);
-  const avgS=Math.round(w.reduce((a,t)=>a+t.sodium,0)/7);
-  const s=getSettings();
-  document.getElementById('week-avgs').innerHTML=`
-    <div class="tv"><span class="tv-l">Avg Protein</span><span class="tv-v">${avgP}g ${bdg(avgP>=(s.prot||130)?'ON TARGET':'BELOW',avgP>=(s.prot||130)?'ok':'wn')}</span></div>
-    <div class="tv"><span class="tv-l">Avg Calories</span><span class="tv-v">${avgC} kcal/day</span></div>
-    <div class="tv"><span class="tv-l">Avg Sodium</span><span class="tv-v">${avgS}mg ${bdg(avgS<=(s.sod||1500)?'GOOD':'HIGH',avgS<=(s.sod||1500)?'ok':'wn')}</span></div>
-    <div class="tv"><span class="tv-l">Sobriety Streak</span><span class="tv-v">${soberDays()} days ${bdg('ACTIVE','ok')}</span></div>`;
-
-  // Score trend chart (last 14 days)
-  if(scoreChart){scoreChart.destroy();scoreChart=null;}
-  const ctx2=document.getElementById('schart').getContext('2d');
-  const sDays=[];
-  for(let i=13;i>=0;i--){const d=new Date();d.setDate(d.getDate()-i);sDays.push(d.toISOString().split('T')[0]);}
-  const scores=sDays.map(d=>calcScore(d).score);
-  scoreChart=new Chart(ctx2,{
-    type:'line',
-    data:{labels:sDays.map(d=>{const dt=new Date(d+'T12:00:00');return dt.getDate()+'/'+(dt.getMonth()+1);}),
-      datasets:[{label:'Protocol Score',data:scores,borderColor:'#1B4332',backgroundColor:'rgba(27,67,50,0.08)',tension:0.3,fill:true,pointBackgroundColor:scores.map(v=>v>=75?'#40916C':v>=50?'#D97706':'#DC2626'),pointRadius:4}]},
-    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{
-      x:{ticks:{font:{family:'monospace',size:9},color:'#9CA3AF'},grid:{display:false}},
-      y:{min:0,max:100,ticks:{font:{family:'monospace',size:9},color:'#9CA3AF'},grid:{color:'rgba(0,0,0,0.04)'}}
-    }}
-  });
-}
-
-// ============================================================
-// STEVE SUMMARY
-// ============================================================
-async function openSummary(){
-  document.getElementById('ov-sum').classList.add('on');
-  const td=today();
-  document.getElementById('sum-dt').textContent=fmtLong(td);
-  document.getElementById('sum-body').textContent='Generating...';
-
-  const s=getSettings();
-  if(!s.key){
-    document.getElementById('sum-body').textContent='⚠️ No API key set.\n\nAdd your Anthropic API key in Settings to generate AI summaries.\n\nIn the meantime, here is your raw data:\n\n'+rawSummary();
-    return;
-  }
-
-  const t=getDayTotals(td),m=getDayMeta(td),sc=calcScore(td);
-  const scans=getScans(),sdates=Object.keys(scans).sort().reverse();
-  const ls=sdates.length?scans[sdates[0]]:null;
-  const food=getFood(),day=food[td]||{};
-  const foods=MEALS.flatMap(ml=>(day[ml]||[]).map(e=>`${ml}: ${e.name} (${e.calories}cal, ${e.protein}g prot)`));
-
-  try{
-    const res=await fetch('https://api.anthropic.com/v1/messages',{
-      method:'POST',
-      headers:{'Content-Type':'application/json','x-api-key':s.key,'anthropic-version':'2023-06-01'},
-      body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:900,messages:[{role:'user',content:`Write a concise, professional clinical nutrition summary for James Marshall's TCM practitioner Steve.
-
-Date: ${fmtLong(td)}
-Protocol Score: ${sc.score}/100
-Sober Days: ${soberDays()} (since March 7, 2026)
-
-Foods logged today:
-${foods.length?foods.join('\n'):'(MFP imported totals — no individual items logged)'}
-
-Daily Totals: Calories ${t.cal} | Protein ${t.protein}g | Carbs ${t.carbs}g | Fat ${t.fat}g | Sodium ${t.sodium}mg | Fiber ${t.fiber}g | Veg ~${(t.vegCups||0).toFixed(1)} cups
-
-Protocol Compliance:
-- Fiery Ginger Shot: ${m.fiery?'Yes':'No'}
-- Hydration Events: ${m.hyd||0}/3
-- Daily Steps: ${m.steps||'not logged'}
-- Sleep: ${m.sleep||'not logged'} hours
-- Grain-Free: ${m.gf?'Yes':'Not confirmed'}
-
-Patient Notes: ${m.notes||'None'}
-
-${ls?`Latest Arboleaf Body Scan (${fmtShort(sdates[0])}):
-- Weight: ${ls.weight} lbs | Body Fat: ${ls.bfPct}% (${ls.bfLbs} lbs)
-- Visceral Fat Grade: ${ls.vf} | Skeletal Muscle: ${ls.smLbs} lbs
-- Body Water: ${ls.bwPct}% | BMR: ${ls.bmr} kcal | Fitness Score: ${ls.fit}/100`:'No scan data available.'}
-
-Patient Profile: James Marshall, 54M, 6'0", ~235 lbs. Goals: visceral fat reduction (grade 14), liver recovery protocol, TCM Damp-Heat clearance (Qing Pi Tang / Ge Hua Jie Cheng Tang). Blood Sugar Reset (low grain/low sugar). Target protein 130g+, minimum 2 cups veg per meal. Has ostomy. Sober since March 7, 2026.
-
-Write 3-4 professional paragraphs: (1) Dietary adherence and macro summary, (2) Protocol compliance highlights, (3) Areas of concern or improvement, (4) Positive observations and momentum. Address Steve directly.`}]})
-    });
-    const data=await res.json();
-    document.getElementById('sum-body').textContent=data.content?.map(i=>i.text||'').join('')||'Error generating.';
-  }catch(e){
-    document.getElementById('sum-body').textContent='Error: '+e.message+'\n\nRaw data:\n\n'+rawSummary();
-  }
-}
-
-function rawSummary(){
-  const td=today(),t=getDayTotals(td),m=getDayMeta(td),sc=calcScore(td);
-  return`Date: ${fmtLong(td)}\nProtocol Score: ${sc.score}/100\nSober Days: ${soberDays()}\n\nCalories: ${t.cal} | Protein: ${t.protein}g | Carbs: ${t.carbs}g | Fat: ${t.fat}g\nSodium: ${t.sodium}mg | Fiber: ${t.fiber}g\n\nFiery Shot: ${m.fiery?'✓':'✗'} | Hydration: ${m.hyd||0}/3 | Steps: ${m.steps||'—'} | Sleep: ${m.sleep||'—'}h\nGrain-Free: ${m.gf?'Yes':'Not confirmed'}\n\nNotes: ${m.notes||'None'}`;
-}
-
-function copySummary(){
-  const t=document.getElementById('sum-body').textContent;
-  navigator.clipboard.writeText(t).then(()=>alert('Copied ✓')).catch(()=>{
-    const el=document.createElement('textarea');el.value=t;document.body.appendChild(el);el.select();document.execCommand('copy');document.body.removeChild(el);alert('Copied ✓');
-  });
-}
-
-// ============================================================
-// SETTINGS
-// ============================================================
-function openSettings(){
-  const s=getSettings();
-  document.getElementById('set-key').value=s.key||'';
-  document.getElementById('set-prot').value=s.prot||130;
-  document.getElementById('set-sod').value=s.sod||1500;
-  document.getElementById('set-cal').value=s.cal||1800;
-  document.getElementById('set-steps').value=s.steps||7000;
-  document.getElementById('ov-set').classList.add('on');
-}
-function saveSettings(){
-  sd('jh_set',{
-    key:document.getElementById('set-key').value,
-    prot:parseInt(document.getElementById('set-prot').value)||130,
-    sod:parseInt(document.getElementById('set-sod').value)||1500,
-    cal:parseInt(document.getElementById('set-cal').value)||1800,
-    steps:parseInt(document.getElementById('set-steps').value)||7000
-  });
-}
-function closeOv(id){document.getElementById(id).classList.remove('on');}
-document.querySelectorAll('.ov').forEach(ov=>ov.addEventListener('click',function(e){if(e.target===this)this.classList.remove('on');}));
-
-// ============================================================
-// PDF SCAN IMPORT
-// ============================================================
 async function parseScanPDF(input){
-  const file=input.files[0];
-  if(!file)return;
-  const st=document.getElementById('pdf-status');
-  const btn=document.getElementById('pdf-btn');
+  const file=input.files[0];if(!file)return;
+  const st=document.getElementById('pdf-status'),btn=document.getElementById('pdf-btn');
   const s=getSettings();
-  if(!s.key){st.textContent='⚠️ No API key — add your Anthropic key in Settings first.';input.value='';return;}
-  btn.disabled=true;btn.innerHTML='<span class="spin"></span> Reading PDF...';
-  st.textContent='Sending to Claude for analysis...';
+  if(!s.key){st.textContent='⚠️ No API key — add in Settings first.';input.value='';return;}
+  btn.disabled=true;btn.innerHTML='<span class="spin"></span> Reading PDF…';st.textContent='Sending to Claude…';
   try{
-    const base64=await new Promise((res,rej)=>{
-      const r=new FileReader();
-      r.onload=()=>res(r.result.split(',')[1]);
-      r.onerror=()=>rej(new Error('Could not read file'));
-      r.readAsDataURL(file);
-    });
-    const resp=await fetch('https://api.anthropic.com/v1/messages',{
-      method:'POST',
-      headers:{'Content-Type':'application/json','x-api-key':s.key,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
-      body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:600,messages:[{role:'user',content:[
-        {type:'document',source:{type:'base64',media_type:'application/pdf',data:base64}},
-        {type:'text',text:`This is an Arboleaf body composition scan PDF for James Marshall. Extract metrics and return ONLY valid JSON, no markdown, no backticks, no explanation. Extract the scan date from the report header (format YYYY-MM-DD).
-Return exactly: {"date":"YYYY-MM-DD","weight":0,"bfPct":0,"bfLbs":0,"smLbs":0,"vf":0,"bwPct":0,"bwL":0,"bmr":0,"fit":0,"lbm":0,"subcutPct":0,"whr":0}
-weight=lbs total, bfPct=PBF%, bfLbs=Body Fat Mass lbs, smLbs=Skeletal Muscle lbs, vf=Visceral Fat grade, bwPct=Body Water % (from Additional Data), bwL=Body Water litres, bmr=BMR kcal, fit=Fitness score, lbm=LBM lbs, subcutPct=Subcutaneous Fat %, whr=Waist-Hip Ratio`}
-      ]}]})
-    });
-    const data=await resp.json();
-    if(data.error)throw new Error(data.error.message||'API error');
+    const base64=await new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(r.result.split(',')[1]);r.onerror=()=>rej(new Error('Read failed'));r.readAsDataURL(file);});
+    const resp=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json','x-api-key':s.key,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:600,messages:[{role:'user',content:[{type:'document',source:{type:'base64',media_type:'application/pdf',data:base64}},{type:'text',text:`Arboleaf body composition scan for James Marshall. Return ONLY valid JSON:\n{"date":"YYYY-MM-DD","weight":0,"bfPct":0,"bfLbs":0,"smLbs":0,"vf":0,"bwPct":0,"bwL":0,"bmr":0,"fit":0,"lbm":0,"subcutPct":0,"whr":0}\nweight=lbs, bfPct=PBF%, bfLbs=Body Fat Mass lbs, smLbs=Skeletal Muscle lbs, vf=Visceral Fat grade, bwPct=Body Water %, bwL=litres, bmr=kcal, fit=Fitness score, lbm=LBM lbs, subcutPct=Subcutaneous Fat %, whr=Waist-Hip Ratio. Extract date from header.`}]}]})});
+    const data=await resp.json();if(data.error)throw new Error(data.error.message);
     const text=data.content?.map(i=>i.text||'').join('')||'';
     const parsed=JSON.parse(text.replace(/```[a-z]*|```/g,'').trim());
     window._parsedScan=parsed;
@@ -1125,19 +712,110 @@ weight=lbs total, bfPct=PBF%, bfLbs=Body Fat Mass lbs, smLbs=Skeletal Muscle lbs
     if(parsed.bwPct)document.getElementById('s-bw').value=parsed.bwPct;
     if(parsed.bmr)document.getElementById('s-bmr').value=parsed.bmr;
     if(parsed.fit)document.getElementById('s-fit').value=parsed.fit;
-    st.innerHTML='✅ <strong>All fields populated!</strong> Review below, then tap Save Scan.';
+    st.innerHTML='✅ <strong>All fields populated!</strong> Review, then tap Save Scan.';
     btn.innerHTML='📄 Choose Another PDF';
-  }catch(e){
-    st.textContent='✗ Error: '+e.message;
-    btn.innerHTML='📄 Choose Arboleaf PDF';
-  }
+  }catch(e){st.textContent='✗ Error: '+e.message;btn.innerHTML='📄 Choose Arboleaf PDF';}
   btn.disabled=false;input.value='';
 }
+function saveScan(){
+  const d=document.getElementById('s-date').value;if(!d){alert('Select a date');return;}
+  const wt=parseFloat(document.getElementById('s-wt').value)||0,bf=parseFloat(document.getElementById('s-bf').value)||0;
+  const extra=window._parsedScan&&window._parsedScan.date===d?window._parsedScan:{};
+  const scan={weight:wt,bfPct:bf,bfLbs:extra.bfLbs||parseFloat((wt*bf/100).toFixed(1)),smLbs:parseFloat(document.getElementById('s-sm').value)||0,vf:parseFloat(document.getElementById('s-vf').value)||0,bwPct:parseFloat(document.getElementById('s-bw').value)||0,bwL:extra.bwL||0,bmr:parseInt(document.getElementById('s-bmr').value)||0,fit:parseFloat(document.getElementById('s-fit').value)||0,lbm:extra.lbm||0,subcutPct:extra.subcutPct||0,whr:extra.whr||0};
+  const stored=ld('jh_scans',{});stored[d]=scan;sd('jh_scans',stored);
+  window._parsedScan=null;
+  ['s-wt','s-bf','s-sm','s-vf','s-bw','s-bmr','s-fit'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('pdf-status').textContent='';
+  renderBody();alert('Scan saved ✓');
+}
 
-// ============================================================
-// INIT
-// ============================================================
-renderDash();
+// ═══════════════════════════════════════════════════════════
+// TRENDS
+// ═══════════════════════════════════════════════════════════
+function showTrend(type,btn){currentTrend=type;document.querySelectorAll('#trend-tabs .stab').forEach(b=>b.classList.remove('on'));btn.classList.add('on');renderTrends();}
+function renderTrends(){
+  const scans=getScans();const sdates=Object.keys(scans).sort();
+  const now=new Date();const fdates=[];
+  for(let i=20;i>=0;i--){const d=new Date(now);d.setDate(d.getDate()-i);fdates.push(d.toISOString().split('T')[0]);}
+  const food=fdates.map(d=>({d,...getDayTotals(d)})).filter(x=>x.cal>0);
+  if(trendChart){trendChart.destroy();trendChart=null;}
+  const ctx=document.getElementById('tchart').getContext('2d');
+  let data,title,stats='';
+  if(currentTrend==='weight'){title='Weight Trend (lbs)';const lbs=sdates.map(d=>scans[d].weight);data={labels:sdates.map(d=>fmtShort(d)),datasets:[{label:'Weight',data:lbs,borderColor:'#1B4332',backgroundColor:'rgba(27,67,50,0.08)',tension:0.3,fill:true,pointBackgroundColor:'#1B4332',pointRadius:5}]};if(lbs.length>=2){const ch=lbs[lbs.length-1]-lbs[0];stats=`<div class="tv"><span class="tv-l">Start</span><span class="tv-v">${lbs[0]} lbs</span></div><div class="tv"><span class="tv-l">Current</span><span class="tv-v">${lbs[lbs.length-1]} lbs</span></div><div class="tv"><span class="tv-l">Change</span><span class="tv-v">${ch>0?'+':''}${ch.toFixed(1)} lbs ${ch<0?'✅':'⚠️'}</span></div><div class="tv"><span class="tv-l">To 201.4lb Goal</span><span class="tv-v">${(lbs[lbs.length-1]-201.4).toFixed(1)} lbs remaining</span></div>`;}}
+  else if(currentTrend==='bodyfat'){title='Body Fat & Visceral Fat';data={labels:sdates.map(d=>fmtShort(d)),datasets:[{label:'Body Fat %',data:sdates.map(d=>scans[d].bfPct),borderColor:'#E76F51',backgroundColor:'rgba(231,111,81,0.08)',tension:0.3,fill:true,pointBackgroundColor:'#E76F51',pointRadius:5,yAxisID:'y'},{label:'Visceral Fat',data:sdates.map(d=>scans[d].vf),borderColor:'#DC2626',borderDash:[5,5],tension:0.3,fill:false,pointBackgroundColor:'#DC2626',pointRadius:5,yAxisID:'y2'}]};stats=`<div class="tv"><span class="tv-l">Current BF%</span><span class="tv-v">${sdates.length?scans[sdates[sdates.length-1]].bfPct+'% (target 20–25%)':"—"}</span></div><div class="tv"><span class="tv-l">Visceral Fat</span><span class="tv-v">${sdates.length?'Grade '+scans[sdates[sdates.length-1]].vf+' (target <10)':"—"}</span></div>`;}
+  else if(currentTrend==='muscle'){title='Skeletal Muscle (lbs)';data={labels:sdates.map(d=>fmtShort(d)),datasets:[{label:'Skeletal Muscle',data:sdates.map(d=>scans[d].smLbs),borderColor:'#40916C',backgroundColor:'rgba(64,145,108,0.08)',tension:0.3,fill:true,pointBackgroundColor:'#40916C',pointRadius:5}]};if(sdates.length)stats=`<div class="tv"><span class="tv-l">Current</span><span class="tv-v">${scans[sdates[sdates.length-1]].smLbs} lbs</span></div><div class="tv"><span class="tv-l">Normal Range</span><span class="tv-v">69.6–85 lbs (you're well above 💪)</span></div>`;}
+  else if(currentTrend==='protein'){title='Daily Protein (g)';const vals=food.map(x=>x.protein);data={labels:food.map(x=>fmtShort(x.d)),datasets:[{label:'Protein',data:vals,backgroundColor:vals.map(v=>v>=130?'rgba(27,67,50,0.85)':'rgba(231,111,81,0.7)'),borderRadius:5}]};if(vals.length){const avg=Math.round(vals.reduce((a,b)=>a+b,0)/vals.length),hit=vals.filter(v=>v>=130).length;stats=`<div class="tv"><span class="tv-l">Average</span><span class="tv-v">${avg}g/day</span></div><div class="tv"><span class="tv-l">Days ≥130g</span><span class="tv-v">${hit}/${vals.length} ${bdg(Math.round(hit/vals.length*100)+'%',hit/vals.length>=0.6?'ok':'wn')}</span></div>`;}}
+  else if(currentTrend==='calories'){title='Daily Calories';const vals=food.map(x=>x.cal);data={labels:food.map(x=>fmtShort(x.d)),datasets:[{label:'Calories',data:vals,backgroundColor:'rgba(64,145,108,0.75)',borderRadius:5}]};if(vals.length){const avg=Math.round(vals.reduce((a,b)=>a+b,0)/vals.length);stats=`<div class="tv"><span class="tv-l">Average</span><span class="tv-v">${avg} kcal/day</span></div><div class="tv"><span class="tv-l">Target</span><span class="tv-v">1,600–1,800 kcal</span></div>`;}}
+  else if(currentTrend==='sodium'){title='Daily Sodium (mg)';const vals=food.map(x=>x.sodium);data={labels:food.map(x=>fmtShort(x.d)),datasets:[{label:'Sodium',data:vals,backgroundColor:vals.map(v=>v<=1500?'rgba(27,67,50,0.8)':v<=2500?'rgba(217,119,6,0.75)':'rgba(220,38,38,0.75)'),borderRadius:5}]};if(vals.length){const avg=Math.round(vals.reduce((a,b)=>a+b,0)/vals.length),ok=vals.filter(v=>v<=1500).length;stats=`<div class="tv"><span class="tv-l">Average</span><span class="tv-v">${avg}mg/day</span></div><div class="tv"><span class="tv-l">Days under 1,500mg</span><span class="tv-v">${ok}/${vals.length}</span></div><div class="tv"><span class="tv-l">Trend</span><span class="tv-v">${vals[vals.length-1]<vals[0]?'📉 Improving':'📈 Watch sodium'}</span></div>`;}}
+  document.getElementById('trend-title').textContent=title;
+  document.getElementById('trend-stats').innerHTML=stats;
+  const isBar=['protein','calories','sodium'].includes(currentTrend);
+  const isTwoAxis=currentTrend==='bodyfat';
+  if(data&&data.labels.length>0){
+    const opts={responsive:true,maintainAspectRatio:false,plugins:{legend:{display:isTwoAxis,labels:{font:{family:'Georgia',size:10},color:'#6B7280',boxWidth:12}}},scales:{x:{ticks:{font:{family:'monospace',size:8},color:'#9CA3AF',maxRotation:40},grid:{display:false}},y:{ticks:{font:{family:'monospace',size:9},color:'#9CA3AF'},grid:{color:'rgba(0,0,0,0.04)'}}}};
+    if(isTwoAxis)opts.scales.y2={type:'linear',position:'right',ticks:{font:{family:'monospace',size:9},color:'#DC2626'},grid:{display:false}};
+    trendChart=new Chart(ctx,{type:isBar?'bar':'line',data,options:opts});
+  }else{ctx.clearRect(0,0,ctx.canvas.width,ctx.canvas.height);ctx.fillStyle='#9CA3AF';ctx.font='13px Georgia';ctx.textAlign='center';ctx.fillText('Keep logging — trends appear here!',ctx.canvas.width/2,90);}
+  const ls=sdates.length?scans[sdates[sdates.length-1]]:null;
+  if(ls){document.getElementById('t-cw').textContent=ls.weight+' lbs';document.getElementById('t-goal').textContent=(ls.weight-201.4).toFixed(1)+' lbs to go';document.getElementById('t-vf').textContent='Grade '+ls.vf+' → Target: <10';}
+  document.getElementById('t-sober').textContent=`March 7, 2026 (Day ${soberDays()})`;
+}
+
+// ═══════════════════════════════════════════════════════════
+// SCORE
+// ═══════════════════════════════════════════════════════════
+function renderScore(){
+  const td=today();const{score,items}=calcScore(td);
+  const arc=document.getElementById('ring-arc'),circ=295.3;
+  arc.style.strokeDashoffset=circ-(score/100)*circ;arc.style.stroke=score>=75?'#40916C':score>=50?'#D97706':'#DC2626';
+  document.getElementById('score-num').textContent=score;
+  document.getElementById('score-items').innerHTML=items.map(x=>`<div class="si"><span class="si-l">${x.lbl}</span><span class="si-p" style="color:${x.st==='ok'?'var(--em)':x.st==='wn'?'var(--amber)':'var(--red)'};">${x.pts}/${x.max}</span></div>`).join('');
+  const last7=[],s=getSettings();
+  for(let i=6;i>=0;i--){const d=new Date();d.setDate(d.getDate()-i);last7.push(d.toISOString().split('T')[0]);}
+  const w=last7.map(d=>getDayTotals(d));
+  const avgP=Math.round(w.reduce((a,t)=>a+t.protein,0)/7),avgC=Math.round(w.reduce((a,t)=>a+t.cal,0)/7),avgS=Math.round(w.reduce((a,t)=>a+t.sodium,0)/7);
+  document.getElementById('week-avgs').innerHTML=`<div class="tv"><span class="tv-l">Avg Protein</span><span class="tv-v">${avgP}g ${bdg(avgP>=(s.prot||130)?'ON TARGET':'BELOW',avgP>=(s.prot||130)?'ok':'wn')}</span></div><div class="tv"><span class="tv-l">Avg Calories</span><span class="tv-v">${avgC} kcal/day</span></div><div class="tv"><span class="tv-l">Avg Sodium</span><span class="tv-v">${avgS}mg ${bdg(avgS<=(s.sod||1500)?'GOOD':'HIGH',avgS<=(s.sod||1500)?'ok':'wn')}</span></div><div class="tv"><span class="tv-l">Sobriety Streak</span><span class="tv-v">${soberDays()} days ${bdg('ACTIVE','ok')}</span></div>`;
+  if(scoreChart){scoreChart.destroy();scoreChart=null;}
+  const ctx2=document.getElementById('schart').getContext('2d');
+  const sDays=[];for(let i=13;i>=0;i--){const d=new Date();d.setDate(d.getDate()-i);sDays.push(d.toISOString().split('T')[0]);}
+  const scores=sDays.map(d=>calcScore(d).score);
+  scoreChart=new Chart(ctx2,{type:'line',data:{labels:sDays.map(d=>{const dt=new Date(d+'T12:00:00');return dt.getDate()+'/'+(dt.getMonth()+1);}),datasets:[{label:'Protocol Score',data:scores,borderColor:'#1B4332',backgroundColor:'rgba(27,67,50,0.08)',tension:0.3,fill:true,pointBackgroundColor:scores.map(v=>v>=75?'#40916C':v>=50?'#D97706':'#DC2626'),pointRadius:4}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{ticks:{font:{family:'monospace',size:9},color:'#9CA3AF'},grid:{display:false}},y:{min:0,max:100,ticks:{font:{family:'monospace',size:9},color:'#9CA3AF'},grid:{color:'rgba(0,0,0,0.04)'}}}}});
+}
+
+// ═══════════════════════════════════════════════════════════
+// STEVE SUMMARY
+// ═══════════════════════════════════════════════════════════
+async function openSummary(){
+  document.getElementById('ov-sum').classList.add('on');
+  const td=today();document.getElementById('sum-dt').textContent=fmtLong(td);document.getElementById('sum-body').textContent='Generating…';
+  const s=getSettings();
+  if(!s.key){document.getElementById('sum-body').textContent='⚠️ No API key set in Settings.\n\nRaw data:\n\n'+rawSummary();return;}
+  const t=getDayTotals(td),m=getDayMeta(td),sc=calcScore(td);
+  const scans=getScans();const sdates=Object.keys(scans).sort().reverse();const ls=sdates.length?scans[sdates[0]]:null;
+  const food=getFood();const day=food[td]||{};
+  const foods=MEALS.flatMap(ml=>(day[ml]||[]).map(e=>`${ml}: ${e.name} (${e.calories}cal, ${e.protein}g prot)`));
+  try{
+    const res=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json','x-api-key':s.key,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:900,messages:[{role:'user',content:`Write a concise clinical nutrition summary for James Marshall's TCM practitioner Steve.\n\nDate: ${fmtLong(td)}\nProtocol Score: ${sc.score}/100 | Sober: Day ${soberDays()} (since March 7, 2026)\n\nFoods today:\n${foods.length?foods.join('\n'):'(MFP totals only — no individual items)'}\n\nTotals: Cal ${t.cal} | Protein ${t.protein}g | Carbs ${t.carbs}g | Fat ${t.fat}g | Na ${t.sodium}mg | Fiber ${t.fiber}g | Veg ~${(t.vegCups||0).toFixed(1)} cups\n\nProtocol: Ginger Shot ${m.fiery?'✓':'✗'} | Hydration ${m.hyd||0}/3 | Steps ${m.steps||'not logged'} | Sleep ${m.sleep||'not logged'}h | Grain-Free ${m.gf?'Yes':'Not confirmed'}\n\nPatient notes: ${m.notes||'None'}\n\n${ls?`Latest Arboleaf (${fmtShort(sdates[0])}): Weight ${ls.weight}lbs | BF ${ls.bfPct}% | Visceral Fat Grade ${ls.vf} | Muscle ${ls.smLbs}lbs | Body Water ${ls.bwPct}% | Fitness ${ls.fit}/100`:'No scan data.'}\n\nProfile: James Marshall, 54M, 6'0", ~233lbs. Goals: visceral fat reduction (Grade 14 → target <10), liver recovery, TCM Damp-Heat clearance. Low grain/low sugar protocol. 130g+ protein daily. Has ostomy. Sober March 7 2026.\n\nWrite 4 professional paragraphs for Steve: (1) Dietary adherence and macros, (2) Protocol compliance highlights, (3) Areas to improve, (4) Positive momentum. Address Steve directly.`}]})});
+    const data=await res.json();document.getElementById('sum-body').textContent=data.content?.map(i=>i.text||'').join('')||'Error generating.';
+  }catch(e){document.getElementById('sum-body').textContent='Error: '+e.message+'\n\n'+rawSummary();}
+}
+function rawSummary(){const td=today(),t=getDayTotals(td),m=getDayMeta(td),sc=calcScore(td);return`Date: ${fmtLong(td)}\nScore: ${sc.score}/100 | Sober Day ${soberDays()}\nCal: ${t.cal} | Protein: ${t.protein}g | Na: ${t.sodium}mg\nGinger: ${m.fiery?'✓':'✗'} | Hydration: ${m.hyd||0}/3 | Steps: ${m.steps||'—'} | Sleep: ${m.sleep||'—'}h\nNotes: ${m.notes||'None'}`;}
+function copySummary(){const t=document.getElementById('sum-body').textContent;navigator.clipboard.writeText(t).then(()=>alert('Copied ✓')).catch(()=>{const el=document.createElement('textarea');el.value=t;document.body.appendChild(el);el.select();document.execCommand('copy');document.body.removeChild(el);alert('Copied ✓');});}
+
+// ═══════════════════════════════════════════════════════════
+// SETTINGS
+// ═══════════════════════════════════════════════════════════
+function openSettings(){
+  const s=getSettings();
+  document.getElementById('set-key').value=s.key||'';
+  document.getElementById('set-prot').value=s.prot||130;
+  document.getElementById('set-sod').value=s.sod||1500;
+  document.getElementById('set-cal').value=s.cal||1800;
+  document.getElementById('set-steps').value=s.steps||7000;
+  document.getElementById('ov-set').classList.add('on');
+}
+function closeOv(id){document.getElementById(id).classList.remove('on');}
+document.querySelectorAll('.ov').forEach(ov=>ov.addEventListener('click',function(e){if(e.target===this)this.classList.remove('on');}));
 </script>
 </body>
 </html>
