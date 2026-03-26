@@ -6,9 +6,6 @@
 <title>James — Health Dashboard</title>
 <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
 :root{
@@ -420,7 +417,37 @@ textarea{resize:vertical;min-height:80px;}
   </div>
 </div>
 
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
 <script>
+// ══════════════════════════════════════
+// CONSTANTS & DATA — must be first
+// ══════════════════════════════════════
+const SOBER_DATE=new Date('2026-03-07T00:00:00');
+const MEALS=['Breakfast','Lunch','Dinner','Snacks'];
+const MFP={
+  '2026-03-10':{cal:2445,carbs:230,fat:112,protein:137,sodium:4561,fiber:22,sugar:14},
+  '2026-03-11':{cal:2832,carbs:303,fat:135,protein:117,sodium:4072,fiber:20,sugar:15},
+  '2026-03-12':{cal:2000,carbs:217,fat:93,protein:79,sodium:1749,fiber:25,sugar:19},
+  '2026-03-13':{cal:1353,carbs:85,fat:69,protein:107,sodium:1830,fiber:15,sugar:14},
+  '2026-03-14':{cal:2197,carbs:151,fat:117,protein:145,sodium:4412,fiber:14,sugar:36},
+  '2026-03-15':{cal:1210,carbs:93,fat:49,protein:117,sodium:1320,fiber:4,sugar:25},
+  '2026-03-16':{cal:1032,carbs:36,fat:48,protein:118,sodium:1112,fiber:11,sugar:12},
+  '2026-03-17':{cal:1488,carbs:58,fat:91,protein:97,sodium:1411,fiber:11,sugar:31},
+  '2026-03-18':{cal:1271,carbs:50,fat:66,protein:120,sodium:1964,fiber:8,sugar:29},
+  '2026-03-19':{cal:1481,carbs:86,fat:67,protein:130,sodium:1508,fiber:25,sugar:12},
+  '2026-03-20':{cal:848,carbs:39,fat:28,protein:111,sodium:1924,fiber:10,sugar:7},
+  '2026-03-21':{cal:1637,carbs:61,fat:102,protein:117,sodium:3183,fiber:12,sugar:21},
+  '2026-03-22':{cal:849,carbs:25,fat:62,protein:54,sodium:506,fiber:4,sugar:17},
+  '2026-03-23':{cal:511,carbs:28,fat:32,protein:25,sodium:364,fiber:7,sugar:11},
+};
+const SCALES_DEFAULT={
+  '2026-03-22':{weight:234.6,bfPct:31,bfLbs:72.8,smLbs:104.2,vf:14,bwPct:49.7,bwL:52.9,bmr:1953,fit:62.1,lbm:161.8,subcutPct:26.8,whr:1.02},
+  '2026-03-23':{weight:235.4,bfPct:31.2,bfLbs:73.4,smLbs:104.8,vf:14,bwPct:49.6,bwL:53,bmr:1957,fit:61.9,lbm:162,subcutPct:27,whr:1.03},
+  '2026-03-24':{weight:233,bfPct:30.7,bfLbs:71.6,smLbs:104,vf:14,bwPct:50,bwL:52.9,bmr:1952,fit:62.6,lbm:161.4,subcutPct:26.5,whr:1.02},
+};
+
 // ╔══════════════════════════════════════════════════════╗
 // ║  FIREBASE CONFIG — replace with your values          ║
 // ╚══════════════════════════════════════════════════════╝
@@ -435,9 +462,15 @@ const FIREBASE_CONFIG = {
 
 // ── Firebase init ──
 let auth, db, UID = null;
-const fbReady = FIREBASE_CONFIG.apiKey !== "REPLACE_YOUR_API_KEY";
-if (fbReady) { firebase.initializeApp(FIREBASE_CONFIG); auth=firebase.auth(); db=firebase.firestore(); }
-else { document.getElementById('cfg-note').style.display='block'; document.querySelector('.auth-btn').style.display='none'; }
+const fbReady = typeof firebase !== 'undefined' && FIREBASE_CONFIG.apiKey !== "REPLACE_YOUR_API_KEY";
+if (fbReady) {
+  firebase.initializeApp(FIREBASE_CONFIG);
+  auth = firebase.auth();
+  db   = firebase.firestore();
+} else {
+  document.getElementById('cfg-note').style.display='block';
+  document.querySelector('.auth-btn').style.display='none';
+}
 
 // ── Sync pill ──
 let _st;
@@ -446,10 +479,12 @@ function showSync(msg='☁ syncing…'){const p=document.getElementById('sync-pi
 // ── Font size ──
 function applyFontSize(v){
   document.documentElement.style.setProperty('--fs',v+'px');
-  document.getElementById('fs-val').textContent=v+'px';
+  const el=document.getElementById('fs-val');if(el)el.textContent=v+'px';
+  const sl=document.getElementById('fs-slider');if(sl)sl.value=v;
   localStorage.setItem('jh_fs',v);
 }
-(function(){const v=localStorage.getItem('jh_fs');if(v){applyFontSize(v);setTimeout(()=>{const sl=document.getElementById('fs-slider');if(sl)sl.value=v;},200);}})();
+// Restore saved font size on load
+(function(){const v=localStorage.getItem('jh_fs');if(v)document.documentElement.style.setProperty('--fs',v+'px');})();
 
 // ── Decimal helper — max 2dp, strip trailing zeros ──
 function fmt(n,dp=2){
@@ -497,7 +532,11 @@ function saveSettings(){
 // ══════════════════════════════════════
 // AUTH
 // ══════════════════════════════════════
-function signInGoogle(){if(!auth){alert('Configure Firebase first.');return;}auth.signInWithPopup(new firebase.auth.GoogleAuthProvider()).catch(e=>{document.getElementById('auth-err').textContent=e.message;});}
+function signInGoogle(){
+  if(!auth){alert('Configure Firebase first.');return;}
+  auth.signInWithPopup(new firebase.auth.GoogleAuthProvider())
+    .catch(e=>{document.getElementById('auth-err').textContent=e.message;});
+}
 function doSignOut(){if(auth)auth.signOut();closeOv('ov-set');}
 function updateUserUI(user){
   if(user.photoURL){const a=document.getElementById('hdr-av');a.src=user.photoURL;a.classList.add('show');document.getElementById('set-user-av').src=user.photoURL;}
@@ -512,32 +551,7 @@ if(auth){
   });
 }else{document.getElementById('auth-screen').classList.add('hidden');renderDash();}
 
-// ══════════════════════════════════════
-// CONSTANTS & DATA
-// ══════════════════════════════════════
-const SOBER_DATE=new Date('2026-03-07T00:00:00');
-const MEALS=['Breakfast','Lunch','Dinner','Snacks'];
-const MFP={
-  '2026-03-10':{cal:2445,carbs:230,fat:112,protein:137,sodium:4561,fiber:22,sugar:14},
-  '2026-03-11':{cal:2832,carbs:303,fat:135,protein:117,sodium:4072,fiber:20,sugar:15},
-  '2026-03-12':{cal:2000,carbs:217,fat:93,protein:79,sodium:1749,fiber:25,sugar:19},
-  '2026-03-13':{cal:1353,carbs:85,fat:69,protein:107,sodium:1830,fiber:15,sugar:14},
-  '2026-03-14':{cal:2197,carbs:151,fat:117,protein:145,sodium:4412,fiber:14,sugar:36},
-  '2026-03-15':{cal:1210,carbs:93,fat:49,protein:117,sodium:1320,fiber:4,sugar:25},
-  '2026-03-16':{cal:1032,carbs:36,fat:48,protein:118,sodium:1112,fiber:11,sugar:12},
-  '2026-03-17':{cal:1488,carbs:58,fat:91,protein:97,sodium:1411,fiber:11,sugar:31},
-  '2026-03-18':{cal:1271,carbs:50,fat:66,protein:120,sodium:1964,fiber:8,sugar:29},
-  '2026-03-19':{cal:1481,carbs:86,fat:67,protein:130,sodium:1508,fiber:25,sugar:12},
-  '2026-03-20':{cal:848,carbs:39,fat:28,protein:111,sodium:1924,fiber:10,sugar:7},
-  '2026-03-21':{cal:1637,carbs:61,fat:102,protein:117,sodium:3183,fiber:12,sugar:21},
-  '2026-03-22':{cal:849,carbs:25,fat:62,protein:54,sodium:506,fiber:4,sugar:17},
-  '2026-03-23':{cal:511,carbs:28,fat:32,protein:25,sodium:364,fiber:7,sugar:11},
-};
-const SCALES_DEFAULT={
-  '2026-03-22':{weight:234.6,bfPct:31,bfLbs:72.8,smLbs:104.2,vf:14,bwPct:49.7,bwL:52.9,bmr:1953,fit:62.1,lbm:161.8,subcutPct:26.8,whr:1.02},
-  '2026-03-23':{weight:235.4,bfPct:31.2,bfLbs:73.4,smLbs:104.8,vf:14,bwPct:49.6,bwL:53,bmr:1957,fit:61.9,lbm:162,subcutPct:27,whr:1.03},
-  '2026-03-24':{weight:233,bfPct:30.7,bfLbs:71.6,smLbs:104,vf:14,bwPct:50,bwL:52.9,bmr:1952,fit:62.6,lbm:161.4,subcutPct:26.5,whr:1.02},
-};
+
 
 // ══════════════════════════════════════
 // STATE
@@ -855,7 +869,6 @@ function openShareClaude(){
   });
   const last7=[];for(let i=6;i>=0;i--){const d=new Date();d.setDate(d.getDate()-i);last7.push(d.toISOString().split('T')[0]);}
   const w=last7.map(d=>getDayTotals(d));
-  const s=getSettings();
   lines.push('\n📈 7-DAY AVERAGES (rolling)');
   lines.push(`  Protein: ${Math.round(w.reduce((a,t)=>a+t.protein,0)/7)}g/day (target: ${s.prot||130}g)`);
   lines.push(`  Calories: ${Math.round(w.reduce((a,t)=>a+t.cal,0)/7)} kcal/day`);
