@@ -834,9 +834,10 @@ function openShareClaude(){
   document.getElementById('claude-body').textContent='Building report…';
   const lastShare=localStorage.getItem('jh_last_share');
   const lastShareDate=lastShare?new Date(lastShare):new Date('2026-03-07');
-  const today_str=today();const todayDt=new Date(today_str+'T23:59:59');
+  const today_str=today();
   const days=[];const cursor=new Date(lastShareDate);cursor.setDate(cursor.getDate()+1);
-  while(cursor<=todayDt){days.push(cursor.toISOString().split('T')[0]);cursor.setDate(cursor.getDate()+1);}
+  const todayDt2=new Date(today_str+'T23:59:59');
+  while(cursor<=todayDt2){days.push(cursor.toISOString().split('T')[0]);cursor.setDate(cursor.getDate()+1);}
   if(days.length===0)days.push(today_str);
   const fromLabel=lastShare?fmtShort(new Date(lastShare).toISOString().split('T')[0]):'Mar 7 (start)';
   document.getElementById('claude-range').textContent=`Covering: ${fromLabel} → ${fmtShort(today_str)} (${days.length} day${days.length!==1?'s':''})`;
@@ -857,8 +858,8 @@ function openShareClaude(){
     lines.push(`\n── ${fmtShort(d)} ──`);
     if(t.cal>0){
       lines.push(`  Nutrition${!hasLiveFood&&MFP[d]?' (MFP import)':' (live logged)'}:`);
-      lines.push(`    Cal: ${t.cal} | Protein: ${t.protein}g | Carbs: ${t.carbs}g | Fat: ${t.fat}g`);
-      lines.push(`    Sodium: ${t.sodium}mg | Fiber: ${t.fiber}g | Veg: ~${fmt(t.vegCups||0,1)} cups`);
+      lines.push(`    Cal: ${Math.round(t.cal)} | Protein: ${fmt(t.protein,1)}g | Carbs: ${fmt(t.carbs,1)}g | Fat: ${fmt(t.fat,1)}g`);
+      lines.push(`    Sodium: ${Math.round(t.sodium)}mg | Fiber: ${fmt(t.fiber,1)}g | Veg: ~${fmt(t.vegCups||0,1)} cups`);
       if(hasLiveFood)MEALS.forEach(ml=>{const entries=dayFood[ml]||[];if(entries.length)lines.push(`    ${ml}: ${entries.map(e=>`${e.name} (${e.calories}cal/${e.protein}g prot)`).join(', ')}`);});
     }else{lines.push('  Nutrition: not logged');}
     lines.push(`  Protocol:`);
