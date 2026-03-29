@@ -367,11 +367,27 @@ textarea{resize:vertical;min-height:80px;}
 <div class="ov" id="ov-sum">
   <div class="ovc">
     <button class="ovcl" onclick="closeOv('ov-sum')">×</button>
-    <span class="ovt">📋 Steve's Clinical Summary</span>
-    <div style="font-size:0.72rem;color:var(--t2);margin-bottom:14px;font-weight:700;" id="sum-dt"></div>
-    <div id="sum-body" style="font-size:0.875rem;line-height:1.85;white-space:pre-wrap;color:var(--t1);margin-bottom:16px;min-height:60px;">Generating…</div>
-    <button class="btn bg" onclick="copySummary()">📋 Copy to Send to Steve</button>
-    <button class="btn bgl" onclick="closeOv('ov-sum')">Close</button>
+    <span class="ovt">📋 Clinical Report for Steve</span>
+
+    <!-- Date range picker — shown first -->
+    <div id="sum-range-picker">
+      <div style="font-size:0.82rem;color:var(--t2);margin-bottom:14px;font-weight:600;line-height:1.6;">Select the date range for Steve's report. All food logs, body scans, and protocol data will be pulled from your Firebase database for those dates.</div>
+      <div class="sg" style="margin-bottom:12px;">
+        <div class="ir"><span class="il">From Date</span><input type="date" id="sum-from" onchange="updateSumPreview()"></div>
+        <div class="ir"><span class="il">To Date</span><input type="date" id="sum-to" onchange="updateSumPreview()"></div>
+      </div>
+      <div style="font-size:0.72rem;color:var(--t2);margin-bottom:12px;font-weight:600;" id="sum-data-preview"></div>
+      <button class="btn bg" onclick="generateSteveReport()">📋 Generate Clinical Report</button>
+      <button class="btn bgl" onclick="closeOv('ov-sum')">Cancel</button>
+    </div>
+
+    <!-- Report output — shown after generation -->
+    <div id="sum-report-view" style="display:none;">
+      <div style="font-size:0.72rem;color:var(--t2);margin-bottom:10px;font-weight:700;" id="sum-dt"></div>
+      <div id="sum-body" style="font-size:0.82rem;line-height:1.85;white-space:pre-wrap;color:var(--t1);margin-bottom:16px;min-height:60px;background:var(--bg);border-radius:10px;padding:13px;border:1px solid var(--bdr);max-height:55vh;overflow-y:auto;">Generating…</div>
+      <button class="btn bg" onclick="copySummary()">📋 Copy to Send to Steve</button>
+      <button class="btn bgl" onclick="resetSteveReport()">← Change Dates</button>
+    </div>
   </div>
 </div>
 
@@ -835,10 +851,13 @@ function openShareClaude(){
   const lastShare=localStorage.getItem('jh_last_share');
   const lastShareDate=lastShare?new Date(lastShare):new Date('2026-03-07');
   const today_str=today();
+  // yesterday = last fully completed day
+  const yesterday=new Date();yesterday.setDate(yesterday.getDate()-1);
+  const yesterday_str=yesterday.toISOString().split('T')[0];
   const days=[];const cursor=new Date(lastShareDate);cursor.setDate(cursor.getDate()+1);
-  const todayDt2=new Date(today_str+'T23:59:59');
-  while(cursor<=todayDt2){days.push(cursor.toISOString().split('T')[0]);cursor.setDate(cursor.getDate()+1);}
-  if(days.length===0)days.push(today_str);
+  const cutoff=new Date(yesterday_str+'T23:59:59');
+  while(cursor<=cutoff){days.push(cursor.toISOString().split('T')[0]);cursor.setDate(cursor.getDate()+1);}
+  if(days.length===0)days.push(yesterday_str);
   const fromLabel=lastShare?fmtShort(new Date(lastShare).toISOString().split('T')[0]):'Mar 7 (start)';
   document.getElementById('claude-range').textContent=`Covering: ${fromLabel} → ${fmtShort(today_str)} (${days.length} day${days.length!==1?'s':''})`;
   const scans=getScans(),food=getFood(),meta=getMeta(),s=getSettings();
@@ -889,24 +908,259 @@ function copyClaudeShare(){
 }
 
 // ══════════════════════════════════════
-// STEVE SUMMARY
+// STEVE CLINICAL REPORT
 // ══════════════════════════════════════
-async function openSummary(){
+function openSummary(){
+  // Reset to date picker view
+  document.getElementById('sum-range-picker').style.display='block';
+  document.getElementById('sum-report-view').style.display='none';
+  // Default: last 14 days
+  const t=today();
+  const f=new Date();f.setDate(f.getDate()-13);
+  document.getElementById('sum-to').value=t;
+  document.getElementById('sum-from').value=f.toISOString().split('T')[0];
+  updateSumPreview();
   document.getElementById('ov-sum').classList.add('on');
-  const td=today();document.getElementById('sum-dt').textContent=fmtLong(td);document.getElementById('sum-body').textContent='Generating…';
-  const s=getSettings();
-  if(!s.key){document.getElementById('sum-body').textContent='⚠️ No API key set in Settings.\n\n'+rawSummary();return;}
-  const t=getDayTotals(td),m=getDayMeta(td),sc=calcScore(td);
-  const scans=getScans();const sdates=Object.keys(scans).sort().reverse();const ls=sdates.length?scans[sdates[0]]:null;
-  const food=getFood();const day=food[td]||{};
-  const foods=MEALS.flatMap(ml=>(day[ml]||[]).map(e=>`${ml}: ${e.name} (${e.calories}cal, ${e.protein}g prot)`));
-  try{
-    const res=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json','x-api-key':s.key,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:900,messages:[{role:'user',content:`Write a concise clinical nutrition summary for James Marshall's TCM practitioner Steve.\n\nDate: ${fmtLong(td)}\nProtocol Score: ${sc.score}/100 | Sober: Day ${soberDays()} (since March 7, 2026)\n\nFoods today:\n${foods.length?foods.join('\n'):'(MFP totals only)'}\n\nTotals: Cal ${t.cal} | Protein ${t.protein}g | Carbs ${t.carbs}g | Fat ${t.fat}g | Na ${t.sodium}mg | Fiber ${t.fiber}g | Veg ~${fmt(t.vegCups||0,1)} cups\n\nProtocol: Ginger Shot ${m.fiery?'✓':'✗'} | Hydration ${m.hyd||0}/3 | Steps ${m.steps||'not logged'} | Sleep ${m.sleep||'not logged'}h | Grain-Free ${m.gf?'Yes':'Not confirmed'}\n\nNotes: ${m.notes||'None'}\n\n${ls?`Latest Arboleaf (${fmtShort(sdates[0])}): Weight ${fmt(ls.weight,2)}lbs | BF ${fmt(ls.bfPct,2)}% | Visceral Fat Grade ${ls.vf} | Muscle ${fmt(ls.smLbs,2)}lbs | Body Water ${fmt(ls.bwPct,2)}% | Fitness ${fmt(ls.fit,2)}/100`:'No scan data.'}\n\nProfile: James Marshall, 54M, 6'0", ~233lbs. Goals: visceral fat reduction (Grade 14 → target <10), liver recovery, TCM Damp-Heat clearance. Low grain/low sugar. 130g+ protein daily. Has ostomy. Sober March 7 2026.\n\nWrite 4 professional paragraphs for Steve: (1) Dietary adherence and macros, (2) Protocol compliance, (3) Areas to improve, (4) Positive momentum. Address Steve directly.`}]})});
-    const data=await res.json();document.getElementById('sum-body').textContent=data.content?.map(i=>i.text||'').join('')||'Error.';
-  }catch(e){document.getElementById('sum-body').textContent='Error: '+e.message+'\n\n'+rawSummary();}
 }
-function rawSummary(){const td=today(),t=getDayTotals(td),m=getDayMeta(td),sc=calcScore(td);return`Date: ${fmtLong(td)}\nScore: ${sc.score}/100 | Sober Day ${soberDays()}\nCal: ${t.cal} | Protein: ${t.protein}g | Na: ${t.sodium}mg\nGinger: ${m.fiery?'✓':'✗'} | Hydration: ${m.hyd||0}/3 | Steps: ${m.steps||'—'} | Sleep: ${m.sleep||'—'}h\nNotes: ${m.notes||'None'}`;}
-function copySummary(){const t=document.getElementById('sum-body').textContent;navigator.clipboard.writeText(t).then(()=>alert('Copied ✓')).catch(()=>{const el=document.createElement('textarea');el.value=t;document.body.appendChild(el);el.select();document.execCommand('copy');document.body.removeChild(el);alert('Copied ✓');});}
+
+function updateSumPreview(){
+  const from=document.getElementById('sum-from').value;
+  const to=document.getElementById('sum-to').value;
+  if(!from||!to)return;
+  const food=getFood();const scans=getScans();const meta=getMeta();
+  // Count days with data
+  const days=getDaysInRange(from,to);
+  const withFood=days.filter(d=>food[d]||MFP[d]).length;
+  const withScans=days.filter(d=>scans[d]&&!Object.keys(SCALES_DEFAULT).includes(d)).length +
+                  days.filter(d=>SCALES_DEFAULT[d]).length;
+  const withMeta=days.filter(d=>meta[d]).length;
+  document.getElementById('sum-data-preview').textContent=
+    `${days.length} days · ${withFood} with nutrition data · ${withScans} body scans · ${withMeta} with protocol data`;
+}
+
+function getDaysInRange(from,to){
+  const days=[];
+  const cur=new Date(from+'T12:00:00');
+  const end=new Date(to+'T12:00:00');
+  while(cur<=end){days.push(cur.toISOString().split('T')[0]);cur.setDate(cur.getDate()+1);}
+  return days;
+}
+
+async function generateSteveReport(){
+  const from=document.getElementById('sum-from').value;
+  const to=document.getElementById('sum-to').value;
+  if(!from||!to){alert('Please select both dates.');return;}
+
+  document.getElementById('sum-range-picker').style.display='none';
+  document.getElementById('sum-report-view').style.display='block';
+  document.getElementById('sum-dt').textContent=`${fmtLong(from)} → ${fmtLong(to)}`;
+  document.getElementById('sum-body').textContent='Generating clinical report from your Firebase data…';
+
+  const s=getSettings();
+  const food=getFood();
+  const scans=getScans();
+  const meta=getMeta();
+  const days=getDaysInRange(from,to);
+
+  // ── Build full data snapshot from Firebase/localStorage ──
+  let reportLines=[];
+
+  // HEADER
+  reportLines.push('══════════════════════════════════════════════════');
+  reportLines.push('       CLINICAL DIETARY REPORT — JAMES MARSHALL');
+  reportLines.push('══════════════════════════════════════════════════');
+  reportLines.push(`Report Period:  ${fmtLong(from)} → ${fmtLong(to)}`);
+  reportLines.push(`Generated:      ${fmtLong(today())}`);
+  reportLines.push(`Sober Since:    March 7, 2026 (Day ${soberDays()} at time of report)`);
+  reportLines.push(`Prepared for:   Steve (TCM Practitioner)`);
+  reportLines.push('──────────────────────────────────────────────────');
+  reportLines.push('PATIENT: James Marshall · 54M · 6\'0" · Toronto');
+  reportLines.push('PROTOCOLS: TCM Damp-Heat Drainage · VAT Removal · Blood Sugar Reset · Liver Recovery');
+  reportLines.push('HERBAL RX:  Qing Pi Tang · Ge Hua Jie Cheng Tang');
+  reportLines.push('DIETARY:    No mushrooms · No avocado · Low grain · Low sugar · Low sodium');
+  reportLines.push('MEDICAL:    Ostomy (type unconfirmed)');
+  reportLines.push('TARGETS:    Protein 130g+ · Sodium <1,500mg · Veg 6 cups · 3 hydration events/day');
+  reportLines.push('══════════════════════════════════════════════════\n');
+
+  // BODY COMPOSITION
+  const scanDates=days.filter(d=>scans[d]).sort();
+  if(scanDates.length>0){
+    reportLines.push('BODY COMPOSITION (Arboleaf Scale)');
+    reportLines.push('──────────────────────────────────────────────────');
+    reportLines.push(padRow(['Date','Weight','BF%','Muscle','VF Grade','Body H2O','BMR','Fitness']));
+    reportLines.push('  ' + '─'.repeat(74));
+    scanDates.forEach(d=>{
+      const sc=scans[d];
+      reportLines.push(padRow([
+        fmtShort(d),
+        fmt(sc.weight,2)+' lbs',
+        fmt(sc.bfPct,2)+'%',
+        fmt(sc.smLbs,2)+' lbs',
+        'Grade '+sc.vf,
+        fmt(sc.bwPct,2)+'%',
+        sc.bmr+' kcal',
+        fmt(sc.fit,2)+'/100'
+      ]));
+    });
+    reportLines.push('  Targets: Weight→201.4lbs · BF%→20–25% · VF→<Gr.10 · Body H2O→50–65%\n');
+  }
+
+  // DAILY LOGS
+  reportLines.push('DAILY FOOD & PROTOCOL LOGS');
+  reportLines.push('══════════════════════════════════════════════════');
+
+  let totalCal=0,totalProt=0,totalCarbs=0,totalFat=0,totalSod=0,totalFiber=0,totalVeg=0;
+  let daysWithData=0,daysProteinMet=0,daysSodiumMet=0,totalHyd=0,totalGinger=0,totalSleep=0,sleepDays=0;
+
+  for(const d of days){
+    const dayFood=food[d]||{};
+    const dayMeta=meta[d]||{};
+    const t=getDayTotals(d);
+    const sc=calcScore(d);
+    const hasLive=MEALS.some(m=>(dayFood[m]||[]).length>0);
+    const hasMFP=!hasLive&&MFP[d];
+    const hasAny=hasLive||hasMFP;
+    const source=hasLive?'Live Logged':hasMFP?'MFP Import':'Not logged';
+
+    reportLines.push(`\n${fmtLong(d).toUpperCase()}`);
+    reportLines.push(`  Source: ${source} · Protocol Score: ${sc.score}/100`);
+    reportLines.push('  ─────────────────────────────────────────────');
+
+    // Meals
+    if(hasLive){
+      MEALS.forEach(meal=>{
+        const entries=dayFood[meal]||[];
+        if(entries.length>0){
+          reportLines.push(`  ${meal.toUpperCase()}:`);
+          entries.forEach(e=>{
+            reportLines.push(`    • ${e.name} — ${e.calories} cal | P:${e.protein}g C:${e.carbs}g F:${e.fat}g Na:${e.sodium}mg${(e.vegCups||0)>0?' Veg:'+e.vegCups+'c':''}`);
+          });
+        } else {
+          reportLines.push(`  ${meal.toUpperCase()}: — not logged`);
+        }
+      });
+    } else if(hasMFP){
+      reportLines.push(`  [MyFitnessPal daily totals — individual meal items not available for this date]`);
+    } else {
+      reportLines.push(`  No food data logged for this day.`);
+    }
+
+    // Macros
+    if(hasAny){
+      daysWithData++;
+      totalCal+=t.cal;totalProt+=t.protein;totalCarbs+=t.carbs;
+      totalFat+=t.fat;totalSod+=t.sodium;totalFiber+=t.fiber;totalVeg+=(t.vegCups||0);
+      if(t.protein>=130)daysProteinMet++;
+      if(t.sodium<=1500)daysSodiumMet++;
+      reportLines.push(`  ─────────────────────────────────────────────`);
+      reportLines.push(`  DAILY TOTALS:`);
+      reportLines.push(`    Calories: ${Math.round(t.cal)} kcal  |  Protein: ${fmt(t.protein,1)}g ${t.protein>=130?'✓':'⚠'}  |  Carbs: ${fmt(t.carbs,1)}g  |  Fat: ${fmt(t.fat,1)}g`);
+      reportLines.push(`    Sodium:   ${Math.round(t.sodium)}mg ${t.sodium<=1500?'✓':t.sodium<=2200?'↑':'⚠'}  |  Fiber: ${fmt(t.fiber,1)}g  |  Veg: ~${fmt(t.vegCups||0,1)} cups`);
+    }
+
+    // Protocol
+    reportLines.push(`  PROTOCOL:`);
+    reportLines.push(`    Ginger Shot: ${dayMeta.fiery?'✓ Done':'✗ Missed'}  |  Hydration: ${dayMeta.hyd||0}/3  |  Grain-Free: ${dayMeta.gf?'✓':'?'}`);
+    if(dayMeta.steps)reportLines.push(`    Steps: ${parseInt(dayMeta.steps).toLocaleString()}`);
+    if(dayMeta.sleep)reportLines.push(`    Sleep: ${dayMeta.sleep}h ${parseFloat(dayMeta.sleep)>=7?'✓':'⚠'}`);
+    if(dayMeta.notes)reportLines.push(`    Notes: ${dayMeta.notes}`);
+
+    if(dayMeta.fiery)totalGinger++;
+    totalHyd+=(dayMeta.hyd||0);
+    if(dayMeta.sleep){totalSleep+=parseFloat(dayMeta.sleep);sleepDays++;}
+  }
+
+  // PERIOD SUMMARY
+  reportLines.push('\n══════════════════════════════════════════════════');
+  reportLines.push('PERIOD SUMMARY & AVERAGES');
+  reportLines.push('══════════════════════════════════════════════════');
+  if(daysWithData>0){
+    const avgCal=Math.round(totalCal/daysWithData);
+    const avgProt=Math.round(totalProt/daysWithData);
+    const avgCarbs=Math.round(totalCarbs/daysWithData);
+    const avgFat=Math.round(totalFat/daysWithData);
+    const avgSod=Math.round(totalSod/daysWithData);
+    const avgFiber=Math.round(totalFiber/daysWithData);
+    const avgVeg=fmt(totalVeg/daysWithData,1);
+    const avgHyd=fmt(totalHyd/days.length,1);
+    const avgSleep=sleepDays>0?fmt(totalSleep/sleepDays,1):'N/A';
+
+    reportLines.push(`  Days in period:          ${days.length} (${daysWithData} with nutrition data)`);
+    reportLines.push(`  Avg Daily Calories:      ${avgCal} kcal`);
+    reportLines.push(`  Avg Daily Protein:       ${avgProt}g  [Target: 130g+]  ${avgProt>=130?'✓ MET':'⚠ BELOW — priority gap'}`);
+    reportLines.push(`  Avg Daily Carbs:         ${avgCarbs}g`);
+    reportLines.push(`  Avg Daily Fat:           ${avgFat}g`);
+    reportLines.push(`  Avg Daily Sodium:        ${avgSod}mg  [Target: <1,500mg]  ${avgSod<=1500?'✓ MET':'⚠ ABOVE TARGET'}`);
+    reportLines.push(`  Avg Daily Fiber:         ${avgFiber}g`);
+    reportLines.push(`  Avg Daily Veg:           ${avgVeg} cups  [Target: 6 cups]`);
+    reportLines.push(`  Protein target met:      ${daysProteinMet}/${daysWithData} days (${Math.round(daysProteinMet/daysWithData*100)}%)`);
+    reportLines.push(`  Sodium target met:       ${daysSodiumMet}/${daysWithData} days (${Math.round(daysSodiumMet/daysWithData*100)}%)`);
+    reportLines.push(`  Avg Hydration Events:    ${avgHyd}/3 per day`);
+    reportLines.push(`  Ginger Shot Compliance:  ${totalGinger}/${days.length} days (${Math.round(totalGinger/days.length*100)}%)`);
+    reportLines.push(`  Avg Sleep (logged days): ${avgSleep}h  [Target: 7h+]`);
+  }
+
+  // Latest scan summary
+  const latestScanDate=scanDates.length?scanDates[scanDates.length-1]:null;
+  if(latestScanDate){
+    const ls=scans[latestScanDate];
+    reportLines.push(`\n  LATEST BODY COMPOSITION (${fmtShort(latestScanDate)}):`);
+    reportLines.push(`    Weight: ${fmt(ls.weight,2)} lbs  |  Body Fat: ${fmt(ls.bfPct,2)}% (${fmt(ls.bfLbs,2)} lbs fat mass)`);
+    reportLines.push(`    Skeletal Muscle: ${fmt(ls.smLbs,2)} lbs  |  Visceral Fat: Grade ${ls.vf}  |  Body Water: ${fmt(ls.bwPct,2)}%`);
+    reportLines.push(`    BMR: ${ls.bmr} kcal  |  Fitness Score: ${fmt(ls.fit,2)}/100  |  WHR: ${ls.whr||'—'}`);
+    reportLines.push(`    Remaining to goal weight (201.4 lbs): ${fmt(ls.weight-201.4,2)} lbs`);
+  }
+
+  reportLines.push('\n══════════════════════════════════════════════════');
+  reportLines.push(`Report generated ${fmtLong(today())} via James Health Dashboard`);
+  reportLines.push('══════════════════════════════════════════════════');
+
+  const rawReport = reportLines.join('\n');
+
+  // Use AI to add clinical commentary if API key available
+  if(s.key){
+    try{
+      document.getElementById('sum-body').textContent='Pulling data complete — now generating clinical commentary…';
+      const res=await fetch('https://api.anthropic.com/v1/messages',{
+        method:'POST',
+        headers:{'Content-Type':'application/json','x-api-key':s.key,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
+        body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:1200,messages:[{role:'user',content:`You are writing for Steve, a TCM practitioner treating James Marshall (54M, Toronto). Below is a complete data export from James's health dashboard covering ${fmtLong(from)} to ${fmtLong(to)}.\n\nBased on this data, write a CLINICAL SUMMARY section (4–5 paragraphs) to add AFTER the raw data below. Cover: (1) overall dietary adherence and macro trends, (2) protocol compliance highlights, (3) key concerns — sodium, grain exposure, protein gaps, (4) body composition trajectory, (5) positive momentum and recommendations.\n\nThen output the full report — the raw data section exactly as provided, followed by your CLINICAL SUMMARY.\n\nRAW DATA:\n${rawReport}`}]})
+      });
+      const data=await res.json();
+      const aiText=data.content?.map(i=>i.text||'').join('')||'';
+      document.getElementById('sum-body').textContent=aiText||rawReport;
+      window._steveReport=aiText||rawReport;
+    }catch(e){
+      document.getElementById('sum-body').textContent=rawReport;
+      window._steveReport=rawReport;
+    }
+  } else {
+    document.getElementById('sum-body').textContent=rawReport;
+    window._steveReport=rawReport;
+  }
+}
+
+function padRow(cols){
+  const widths=[10,10,7,10,10,9,10,9];
+  return '  '+cols.map((c,i)=>String(c).padEnd(widths[i]||10)).join(' ');
+}
+
+function resetSteveReport(){
+  document.getElementById('sum-range-picker').style.display='block';
+  document.getElementById('sum-report-view').style.display='none';
+}
+
+function rawSummary(){
+  const td=today(),t=getDayTotals(td),m=getDayMeta(td),sc=calcScore(td);
+  return`Date: ${fmtLong(td)}\nScore: ${sc.score}/100 | Sober Day ${soberDays()}\nCal: ${t.cal} | Protein: ${t.protein}g | Na: ${t.sodium}mg\nGinger: ${m.fiery?'✓':'✗'} | Hydration: ${m.hyd||0}/3 | Steps: ${m.steps||'—'} | Sleep: ${m.sleep||'—'}h\nNotes: ${m.notes||'None'}`;
+}
+
+function copySummary(){
+  const t=window._steveReport||document.getElementById('sum-body').textContent;
+  navigator.clipboard.writeText(t).then(()=>alert('Copied ✓')).catch(()=>{
+    const el=document.createElement('textarea');el.value=t;document.body.appendChild(el);el.select();document.execCommand('copy');document.body.removeChild(el);alert('Copied ✓');
+  });
+}
 
 // ══════════════════════════════════════
 // SETTINGS
