@@ -428,7 +428,7 @@ textarea{resize:vertical;min-height:80px;}
   </div>
 </div>
 
-<script src="https://unpkg.com/docx@8.5.0/build/index.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/docx@8.5.0/build/index.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
@@ -946,6 +946,11 @@ async function generateSteveReport(){
   const from=document.getElementById('sum-from').value;
   const to=document.getElementById('sum-to').value;
   if(!from||!to){alert('Please select both dates.');return;}
+
+  // Check docx library loaded
+  if(typeof docx==='undefined'){
+    alert('Document library still loading — please wait a moment and try again.');return;
+  }
 
   const btn=document.querySelector('#sum-range-picker .btn.bg');
   btn.disabled=true;btn.innerHTML='<span class="spin"></span> Building DOCX…';
