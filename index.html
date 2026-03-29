@@ -377,7 +377,7 @@ textarea{resize:vertical;min-height:80px;}
         <div class="ir"><span class="il">To Date</span><input type="date" id="sum-to" onchange="updateSumPreview()"></div>
       </div>
       <div style="font-size:0.72rem;color:var(--t2);margin-bottom:12px;font-weight:600;" id="sum-data-preview"></div>
-      <button class="btn bg" onclick="generateSteveReport()">📋 Generate & Download DOCX</button>
+      <button class="btn bg" onclick="generateSteveReport()">📋 Generate & Download Report</button>
       <button class="btn bgl" onclick="closeOv('ov-sum')">Cancel</button>
     </div>
 
@@ -428,7 +428,7 @@ textarea{resize:vertical;min-height:80px;}
   </div>
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/docx@8.5.0/build/index.js"></script>
+
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
@@ -947,154 +947,19 @@ async function generateSteveReport(){
   const to=document.getElementById('sum-to').value;
   if(!from||!to){alert('Please select both dates.');return;}
 
-  // Check docx library loaded
-  if(typeof docx==='undefined'){
-    alert('Document library still loading — please wait a moment and try again.');return;
-  }
-
   const btn=document.querySelector('#sum-range-picker .btn.bg');
-  btn.disabled=true;btn.innerHTML='<span class="spin"></span> Building DOCX…';
+  btn.disabled=true;btn.innerHTML='<span class="spin"></span> Building Report…';
 
   try{
-    const {
-      Document,Packer,Paragraph,TextRun,Table,TableRow,TableCell,
-      Header,AlignmentType,HeadingLevel,BorderStyle,WidthType,ShadingType,
-      VerticalAlign,LevelFormat,TabStopType,TabStopPosition,PageBreak
-    } = docx;
-
-    // ── Colours ──
-    const C_DARK='1B4332',C_MID='40916C',C_LIGHT='D8F3DC',C_AMBER='FEF3C7',
-          C_RED='FEE2E2',C_GREY='F4F1EC',C_WHITE='FFFFFF',C_TEXT='1A1A2E',C_MUTED='6B7280';
-
-    // ── Border helpers ──
-    const tb={style:BorderStyle.SINGLE,size:1,color:'CCCCCC'};
-    const ab={top:tb,bottom:tb,left:tb,right:tb};
-    const nb={style:BorderStyle.NONE,size:0,color:'FFFFFF'};
-    const nob={top:nb,bottom:nb,left:nb,right:nb};
-
-    // ── Cell helper ──
-    function cl(text,opts={}){
-      return new TableCell({
-        borders:opts.nb?nob:ab,
-        width:{size:opts.w||1560,type:WidthType.DXA},
-        shading:{fill:opts.fill||C_WHITE,type:ShadingType.CLEAR},
-        margins:{top:80,bottom:80,left:120,right:120},
-        verticalAlign:VerticalAlign.CENTER,
-        children:[new Paragraph({
-          alignment:opts.align||AlignmentType.LEFT,
-          children:[new TextRun({text:String(text||'—'),font:'Arial',size:opts.sz||18,bold:opts.bold||false,color:opts.color||C_TEXT,italics:opts.it||false})]
-        })]
-      });
-    }
-
-    // ── Multi-line cell ──
-    function mlCell(lines,opts={}){
-      return new TableCell({
-        borders:ab,width:{size:opts.w||7800,type:WidthType.DXA},
-        margins:{top:80,bottom:80,left:120,right:120},
-        children:lines.length?lines.map(l=>new Paragraph({spacing:{after:40},children:[new TextRun({text:l||'—',font:'Arial',size:opts.sz||18,color:C_TEXT})]})):
-          [new Paragraph({children:[new TextRun({text:'—',font:'Arial',size:18,color:C_MUTED,italics:true})]})]
-      });
-    }
-
-    function sp(pts=100){return new Paragraph({spacing:{after:pts},children:[]});}
-
-    function divider(title){
-      return [sp(160),
-        new Paragraph({border:{bottom:{style:BorderStyle.SINGLE,size:8,color:C_DARK}},spacing:{after:60},
-          children:[new TextRun({text:title.toUpperCase(),bold:true,font:'Arial',size:24,color:C_DARK,allCaps:true})]}),
-        sp(80)];
-    }
-
-    function flagProt(v){return v>=130?C_LIGHT:v>=90?C_AMBER:C_RED;}
-    function flagSod(v){return v<=1500?C_LIGHT:v<=2200?C_AMBER:C_RED;}
-
-    // ── Load all data ──
-    const food=getFood();
-    const allScans=getScans();
-    const meta=getMeta();
-    const s=getSettings();
+    const food=getFood(),allScans=getScans(),meta=getMeta(),s=getSettings();
     const days=getDaysInRange(from,to);
 
-    // ── Accumulate period stats ──
+    // ── Accumulate stats ──
     let totCal=0,totProt=0,totCarbs=0,totFat=0,totSod=0,totFiber=0,totVeg=0;
     let dWD=0,dProtMet=0,dSodMet=0,totHyd=0,totGinger=0,totSleep=0,slDays=0;
 
-    const docChildren=[];
-
-    // ══ COVER ══
-    docChildren.push(
-      sp(600),
-      new Paragraph({alignment:AlignmentType.CENTER,spacing:{after:120},children:[new TextRun({text:'CLINICAL DIETARY REPORT',font:'Arial',size:44,bold:true,color:C_DARK})]}),
-      new Paragraph({alignment:AlignmentType.CENTER,spacing:{after:80},children:[new TextRun({text:'James Marshall',font:'Arial',size:32,color:C_TEXT})]}),
-      new Paragraph({alignment:AlignmentType.CENTER,spacing:{after:80},children:[new TextRun({text:`${fmtLong(from)} — ${fmtLong(to)}`,font:'Arial',size:26,color:C_MUTED})]}),
-      new Paragraph({alignment:AlignmentType.CENTER,spacing:{after:80},children:[new TextRun({text:'Prepared for: Steve (TCM Practitioner)',font:'Arial',size:22,italics:true,color:C_MUTED})]}),
-      sp(200),
-      new Paragraph({border:{top:{style:BorderStyle.SINGLE,size:6,color:C_DARK}},spacing:{after:80},children:[]}),
-      sp(100)
-    );
-
-    // ══ PATIENT OVERVIEW ══
-    docChildren.push(...divider('Patient Overview'));
-    const latestWt=Object.keys(allScans).sort().reverse().map(d=>allScans[d].weight)[0]||'~233';
-    docChildren.push(new Table({width:{size:9360,type:WidthType.DXA},columnWidths:[2600,6760],rows:[
-      new TableRow({children:[cl('Patient',{bold:true,fill:C_DARK,color:C_WHITE,w:2600}),cl('James Marshall',{w:6760})]}),
-      new TableRow({children:[cl('Age / Height',{bold:true,fill:C_GREY,w:2600}),cl('54 years old  |  6\'0"',{fill:C_GREY,w:6760})]}),
-      new TableRow({children:[cl('Weight Range',{bold:true,w:2600}),cl(`${latestWt} lbs (latest scan)  |  Goal: 201.4 lbs`,{w:6760})]}),
-      new TableRow({children:[cl('Sobriety',{bold:true,fill:C_LIGHT,w:2600}),cl(`Sober since March 7, 2026 — Day ${soberDays()} at time of report`,{fill:C_LIGHT,w:6760})]}),
-      new TableRow({children:[cl('Active Protocols',{bold:true,fill:C_GREY,w:2600}),cl('TCM Damp-Heat Drainage  ·  VAT Removal Protocol  ·  Blood Sugar Reset  ·  Liver Recovery',{fill:C_GREY,w:6760})]}),
-      new TableRow({children:[cl('Herbal Rx (Steve)',{bold:true,w:2600}),cl('Qing Pi Tang  ·  Ge Hua Jie Cheng Tang',{w:6760})]}),
-      new TableRow({children:[cl('Supplements',{bold:true,fill:C_GREY,w:2600}),cl('AOR Tri B12 Synergy (sublingual — ostomy-appropriate)',{fill:C_GREY,w:6760})]}),
-      new TableRow({children:[cl('Dietary Restrictions',{bold:true,w:2600}),cl('No mushrooms  ·  No avocado  ·  Low grain  ·  Low sugar  ·  Low sodium',{w:6760})]}),
-      new TableRow({children:[cl('Protocol Items',{bold:true,fill:C_GREY,w:2600}),cl('Greenhouse Fiery Ginger Shot daily  ·  3 hydration events (ginger/lemon tea)  ·  Raw pepitas  ·  Dark berries  ·  Green tea',{fill:C_GREY,w:6760})]}),
-      new TableRow({children:[cl('Medical Notes',{bold:true,fill:C_AMBER,w:2600}),cl('Ostomy (type unconfirmed)  ·  Liver recovery ongoing  ·  TCM Damp-Heat clearance active',{fill:C_AMBER,w:6760})]}),
-    ]}),sp(200));
-
-    // ══ NUTRITIONAL TARGETS ══
-    docChildren.push(...divider('Nutritional Targets & Period Performance'));
-    docChildren.push(new Table({width:{size:9360,type:WidthType.DXA},columnWidths:[2340,2340,2340,2340],rows:[
-      new TableRow({children:[cl('Metric',{bold:true,fill:C_DARK,color:C_WHITE,w:2340}),cl('Daily Target',{bold:true,fill:C_DARK,color:C_WHITE,w:2340}),cl('Period Avg',{bold:true,fill:C_DARK,color:C_WHITE,w:2340}),cl('Status',{bold:true,fill:C_DARK,color:C_WHITE,w:2340})]}),
-      new TableRow({children:[cl('Protein',{fill:C_GREY,w:2340}),cl('130g+ / day',{fill:C_GREY,w:2340}),cl('Calculating…',{fill:C_GREY,w:2340,bold:true}),cl('See daily logs',{fill:C_AMBER,w:2340})]}),
-      new TableRow({children:[cl('Sodium',{w:2340}),cl('< 1,500mg / day',{w:2340}),cl('Calculating…',{w:2340}),cl('Variable — restaurant meals high',{fill:C_AMBER,w:2340})]}),
-      new TableRow({children:[cl('Vegetables',{fill:C_GREY,w:2340}),cl('6 cups / day (2c per meal)',{fill:C_GREY,w:2340}),cl('Improving',{fill:C_GREY,w:2340}),cl('Tracking improving',{fill:C_AMBER,w:2340})]}),
-      new TableRow({children:[cl('Calories',{w:2340}),cl('1,600–1,800 kcal',{w:2340}),cl('Variable',{w:2340}),cl('Some days incomplete logging',{fill:C_AMBER,w:2340})]}),
-      new TableRow({children:[cl('Grain / Sugar',{fill:C_GREY,w:2340}),cl('Minimal / none',{fill:C_GREY,w:2340}),cl('Inconsistent',{fill:C_GREY,w:2340}),cl('Improving in recent days',{fill:C_LIGHT,w:2340})]}),
-      new TableRow({children:[cl('Hydration Events',{w:2340}),cl('3 per day',{w:2340}),cl('Avg 1–2 / day',{w:2340}),cl('Improving — 3/3 achieved multiple days',{fill:C_LIGHT,w:2340})]}),
-      new TableRow({children:[cl('Fiery Ginger Shot',{fill:C_GREY,w:2340}),cl('Daily',{fill:C_GREY,w:2340}),cl('Consistent from Mar 24',{fill:C_GREY,w:2340}),cl('Habit established ✓',{fill:C_LIGHT,w:2340})]}),
-      new TableRow({children:[cl('Sleep',{w:2340}),cl('7h+ per night',{w:2340}),cl('7.1–7.75h logged',{w:2340}),cl('On target when tracked ✓',{fill:C_LIGHT,w:2340})]}),
-    ]}),sp(200));
-
-    // ══ BODY COMPOSITION ══
-    const scanDatesInRange=days.filter(d=>allScans[d]).sort();
-    if(scanDatesInRange.length>0){
-      docChildren.push(...divider('Body Composition Tracking (Arboleaf Scale)'));
-      docChildren.push(new Table({width:{size:9360,type:WidthType.DXA},columnWidths:[1200,1200,1100,1200,1100,1200,1200,1160],rows:[
-        new TableRow({children:[cl('Date',{bold:true,fill:C_DARK,color:C_WHITE,w:1200}),cl('Weight',{bold:true,fill:C_DARK,color:C_WHITE,w:1200}),cl('BF%',{bold:true,fill:C_DARK,color:C_WHITE,w:1100}),cl('Muscle',{bold:true,fill:C_DARK,color:C_WHITE,w:1200}),cl('Visc Fat',{bold:true,fill:C_DARK,color:C_WHITE,w:1100}),cl('Body H2O',{bold:true,fill:C_DARK,color:C_WHITE,w:1200}),cl('BMR',{bold:true,fill:C_DARK,color:C_WHITE,w:1200}),cl('Fitness',{bold:true,fill:C_DARK,color:C_WHITE,w:1160})]}),
-        ...scanDatesInRange.map((d,i)=>{
-          const sc=allScans[d];
-          const fill=i%2===0?C_WHITE:C_GREY;
-          return new TableRow({children:[
-            cl(fmtShort(d),{fill,w:1200}),
-            cl(fmt(sc.weight,2)+' lbs',{fill,w:1200}),
-            cl(fmt(sc.bfPct,2)+'%',{fill:flagProt(100-sc.bfPct)<C_LIGHT?C_AMBER:fill,w:1100}),
-            cl(fmt(sc.smLbs,2)+' lbs',{fill:C_LIGHT,w:1200}),
-            cl('Grade '+sc.vf,{fill:C_AMBER,w:1100}),
-            cl(fmt(sc.bwPct,2)+'%',{fill:sc.bwPct>=50?C_LIGHT:fill,w:1200}),
-            cl(sc.bmr+' kcal',{fill,w:1200}),
-            cl(fmt(sc.fit,2)+'/100',{fill,w:1160}),
-          ]});
-        }),
-        new TableRow({children:[cl('TARGET',{bold:true,fill:C_DARK,color:C_WHITE,w:1200}),cl('201.4 lbs',{fill:C_AMBER,w:1200}),cl('20–25%',{fill:C_AMBER,w:1100}),cl('Normal: 69.6–85',{fill:C_LIGHT,w:1200}),cl('<Grade 10',{fill:C_AMBER,w:1100}),cl('50–65%',{fill:C_AMBER,w:1200}),cl('2,125–2,519',{fill:C_AMBER,w:1200}),cl('',{fill:C_GREY,w:1160})]}),
-      ]}),sp(100));
-      docChildren.push(new Paragraph({spacing:{after:200},children:[new TextRun({text:'Note: Skeletal muscle mass (104+ lbs) significantly exceeds the normal range (69.6–85 lbs) — excellent muscle preservation. Body water reaching 50%+ confirms hydration protocol is working.',font:'Arial',size:17,italics:true,color:C_MUTED})]}));
-    }
-
-    // ══ DAILY LOGS ══
-    docChildren.push(...divider('Daily Food & Protocol Logs'));
-    docChildren.push(new Paragraph({spacing:{after:120},children:[new TextRun({text:'Data sources: Firebase live logs (individual meal items with full macros) + MyFitnessPal historical imports (daily totals) + protocol check-ins. Color coding: Green = target met · Amber = approaching limit · Red = over target.',font:'Arial',size:17,italics:true,color:C_MUTED})]}));
-    docChildren.push(sp(80));
-
-    for(const d of days){
+    // Pre-calculate all day data
+    const dayData=days.map(d=>{
       const dayFood=food[d]||{};
       const dayMeta=meta[d]||{};
       const t=getDayTotals(d);
@@ -1102,93 +967,162 @@ async function generateSteveReport(){
       const hasLive=MEALS.some(m=>(dayFood[m]||[]).length>0);
       const hasMFP=!hasLive&&MFP[d];
       const hasAny=hasLive||hasMFP;
-      const src=hasLive?'Live Logged':hasMFP?'MFP Import':'Not logged';
-
-      // Accumulate stats
       if(hasAny){
         dWD++;totCal+=t.cal;totProt+=t.protein;totCarbs+=t.carbs;
         totFat+=t.fat;totSod+=t.sodium;totFiber+=t.fiber;totVeg+=(t.vegCups||0);
-        if(t.protein>=130)dProtMet++;
-        if(t.sodium<=1500)dSodMet++;
+        if(t.protein>=(s.prot||130))dProtMet++;
+        if(t.sodium<=(s.sod||1500))dSodMet++;
       }
       if(dayMeta.fiery)totGinger++;
       totHyd+=(dayMeta.hyd||0);
       if(dayMeta.sleep){totSleep+=parseFloat(dayMeta.sleep);slDays++;}
+      return{d,dayFood,dayMeta,t,sc,hasLive,hasMFP,hasAny};
+    });
 
-      // Day header
-      docChildren.push(new Paragraph({
-        spacing:{before:280,after:80},
-        children:[
-          new TextRun({text:fmtLong(d),font:'Arial',size:24,bold:true,color:C_DARK}),
-          new TextRun({text:'   ',font:'Arial',size:20}),
-          new TextRun({text:`[${src}]  ·  Score: ${sc.score}/100`,font:'Arial',size:18,italics:true,color:C_MUTED}),
-        ]
-      }));
+    const scanDates=days.filter(d=>allScans[d]).sort();
+    const latestWt=Object.keys(allScans).sort().reverse().map(d=>allScans[d].weight)[0]||'~233';
 
-      // Meals table
-      const mealRows=[];
+    // ── Colour helpers ──
+    const cGreen='#D8F3DC',cAmber='#FEF3C7',cRed='#FEE2E2',cDark='#1B4332',cGrey='#F4F1EC';
+    function fProt(v){return v>=(s.prot||130)?cGreen:v>=90?cAmber:cRed;}
+    function fSod(v){return v<=(s.sod||1500)?cGreen:v<=2200?cAmber:cRed;}
+    function fHyd(v){return v>=3?cGreen:v>=2?cAmber:cGrey;}
+    function fGinger(v){return v?cGreen:cRed;}
+
+    // ── Table cell builder ──
+    function td(text,bg='',bold=false,align='left'){
+      return`<td style="padding:6px 10px;border:1px solid #ddd;background:${bg||'#fff'};font-weight:${bold?'700':'400'};text-align:${align};font-size:12px;">${text||'—'}</td>`;
+    }
+    function th(text,bg='#1B4332'){
+      return`<th style="padding:7px 10px;border:1px solid #ccc;background:${bg};color:#fff;font-weight:700;font-size:12px;text-align:left;">${text}</th>`;
+    }
+    function hdr(text,size=18){
+      return`<div style="border-bottom:3px solid #1B4332;margin:28px 0 10px;padding-bottom:6px;font-size:${size}px;font-weight:800;color:#1B4332;text-transform:uppercase;letter-spacing:1px;">${text}</div>`;
+    }
+    function overviewRow(label,value,bg=''){
+      return`<tr><td style="padding:6px 10px;border:1px solid #ddd;background:#F4F1EC;font-weight:700;font-size:12px;width:28%;">${label}</td><td style="padding:6px 10px;border:1px solid #ddd;background:${bg||'#fff'};font-size:12px;">${value}</td></tr>`;
+    }
+
+    // ── Build HTML ──
+    let html=`<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8">
+<title>Clinical Report — James Marshall — ${fmtShort(from)} to ${fmtShort(to)}</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{font-family:Arial,sans-serif;color:#1A1A2E;padding:40px;max-width:1000px;margin:0 auto;font-size:13px;line-height:1.5;}
+  table{width:100%;border-collapse:collapse;margin-bottom:14px;}
+  h1{font-size:26px;color:#1B4332;font-weight:800;margin-bottom:6px;}
+  .cover{text-align:center;padding:40px 0 30px;}
+  .cover-sub{font-size:16px;color:#6B7280;margin-top:6px;}
+  .cover-line{border-top:3px solid #1B4332;margin:20px 0;}
+  .day-header{font-size:15px;font-weight:800;color:#1B4332;margin:22px 0 8px;padding-top:8px;border-top:2px solid #E5E0D8;}
+  .note{font-size:11px;color:#6B7280;font-style:italic;margin-bottom:12px;}
+  .extras{font-size:11px;color:#6B7280;font-style:italic;margin:5px 0 4px;}
+  @media print{body{padding:20px;}@page{margin:1.5cm;}}
+</style></head><body>
+
+<div class="cover">
+  <div style="font-size:10px;color:#6B7280;letter-spacing:2px;text-transform:uppercase;">Confidential Clinical Document</div>
+  <h1 style="margin-top:12px;">Clinical Dietary Report</h1>
+  <div class="cover-sub">James Marshall</div>
+  <div class="cover-sub" style="font-size:14px;margin-top:4px;">${fmtLong(from)} &mdash; ${fmtLong(to)}</div>
+  <div class="cover-sub" style="margin-top:8px;font-style:italic;">Prepared for: Steve (TCM Practitioner)</div>
+  <div class="cover-sub" style="font-size:11px;margin-top:4px;color:#9CA3AF;">Generated: ${fmtLong(today())} &nbsp;|&nbsp; Sober: Day ${soberDays()} (since March 7, 2026)</div>
+  <div class="cover-line"></div>
+</div>
+
+${hdr('Patient Overview')}
+<table>
+  ${overviewRow('Patient','James Marshall')}
+  ${overviewRow('Age / Height','54 years old &nbsp;|&nbsp; 6\'0"')}
+  ${overviewRow('Weight Range',`${latestWt} lbs (latest scan) &nbsp;|&nbsp; Goal: 201.4 lbs`)}
+  ${overviewRow('Sobriety',`Sober since March 7, 2026 — Day ${soberDays()} at time of report`,'#D8F3DC')}
+  ${overviewRow('Active Protocols','TCM Damp-Heat Drainage &nbsp;·&nbsp; VAT Removal &nbsp;·&nbsp; Blood Sugar Reset &nbsp;·&nbsp; Liver Recovery','#F4F1EC')}
+  ${overviewRow('Herbal Rx (Steve)','Qing Pi Tang &nbsp;·&nbsp; Ge Hua Jie Cheng Tang')}
+  ${overviewRow('Supplements','AOR Tri B12 Synergy (sublingual — ostomy-appropriate)','#F4F1EC')}
+  ${overviewRow('Dietary Restrictions','No mushrooms &nbsp;·&nbsp; No avocado &nbsp;·&nbsp; Low grain &nbsp;·&nbsp; Low sugar &nbsp;·&nbsp; Low sodium')}
+  ${overviewRow('Protocol Items','Greenhouse Fiery Ginger Shot daily &nbsp;·&nbsp; 3 hydration events (ginger/lemon tea) &nbsp;·&nbsp; Raw pepitas &nbsp;·&nbsp; Dark berries &nbsp;·&nbsp; Green tea','#F4F1EC')}
+  ${overviewRow('Medical Notes','Ostomy (type unconfirmed) &nbsp;·&nbsp; Liver recovery ongoing &nbsp;·&nbsp; TCM Damp-Heat clearance active','#FEF3C7')}
+</table>
+
+${hdr('Nutritional Targets')}
+<table>
+  <tr>${th('Metric')}${th('Daily Target')}${th('Status / Notes')}</tr>
+  <tr>${td('Protein',cGrey,true)}${td('130g+ / day')}${td('Primary gap — inconsistent; improving in second half of period',cAmber)}</tr>
+  <tr>${td('Sodium',cGrey,true)}${td('< 1,500mg / day')}${td('Restaurant meals drive sodium high; home meals well-controlled',cAmber)}</tr>
+  <tr>${td('Vegetables',cGrey,true)}${td('6 cups / day (2c per meal)')}${td('Improving — live logged days showing 3–5 cups',cAmber)}</tr>
+  <tr>${td('Calories',cGrey,true)}${td('1,600–1,800 kcal')}${td('Variable; some days incomplete logging',cAmber)}</tr>
+  <tr>${td('Grain / Sugar',cGrey,true)}${td('Minimal / none')}${td('Improving in recent days; occasional restaurant slippage',cAmber)}</tr>
+  <tr>${td('Hydration',cGrey,true)}${td('3 events / day')}${td('Improving — 3/3 achieved multiple days',cGreen)}</tr>
+  <tr>${td('Fiery Ginger Shot',cGrey,true)}${td('Daily')}${td('Habit established consistently from March 24 ✓',cGreen)}</tr>
+  <tr>${td('Sleep',cGrey,true)}${td('7h+ / night')}${td('On target when tracked: 7.1–7.75h ✓',cGreen)}</tr>
+</table>`;
+
+    // Body composition
+    if(scanDates.length>0){
+      html+=hdr('Body Composition (Arboleaf Scale)');
+      html+=`<table><tr>${th('Date')}${th('Weight')}${th('Body Fat %')}${th('Muscle')}${th('Visceral Fat')}${th('Body Water')}${th('BMR')}${th('Fitness')}</tr>`;
+      scanDates.forEach((d,i)=>{
+        const sc=allScans[d];const bg=i%2===0?'#fff':cGrey;
+        html+=`<tr>${td(fmtShort(d),bg)}${td(fmt(sc.weight,2)+' lbs',bg)}${td(fmt(sc.bfPct,2)+'%',bg)}${td(fmt(sc.smLbs,2)+' lbs',cGreen)}${td('Grade '+sc.vf,cAmber)}${td(fmt(sc.bwPct,2)+'%',sc.bwPct>=50?cGreen:bg)}${td(sc.bmr+' kcal',bg)}${td(fmt(sc.fit,2)+'/100',bg)}</tr>`;
+      });
+      html+=`<tr style="background:#f0f0f0;font-style:italic;">${td('TARGETS','#E5E0D8',true)}${td('201.4 lbs',cAmber)}${td('20–25%',cAmber)}${td('Normal: 69.6–85 lbs',cGreen)}${td('< Grade 10',cAmber)}${td('50–65%',cAmber)}${td('2,125–2,519',cAmber)}${td('—')}</tr>`;
+      html+=`</table>`;
+      html+=`<p class="note">Skeletal muscle mass (104+ lbs) significantly exceeds normal range — excellent muscle preservation. Body water at 50%+ confirms hydration protocol is working.</p>`;
+    }
+
+    // Daily logs
+    html+=hdr('Daily Food & Protocol Logs');
+    html+=`<p class="note">Data: Firebase live logs (individual items + full macros) + MyFitnessPal historical imports (daily totals). Colour coding: <span style="background:${cGreen};padding:1px 6px;border-radius:3px;">green = target met</span> &nbsp;<span style="background:${cAmber};padding:1px 6px;border-radius:3px;">amber = near limit</span> &nbsp;<span style="background:${cRed};padding:1px 6px;border-radius:3px;">red = over target</span></p>`;
+
+    dayData.forEach(({d,dayFood,dayMeta,t,sc,hasLive,hasMFP,hasAny})=>{
+      const src=hasLive?'Live Logged':hasMFP?'MFP Import':'Not logged';
+      html+=`<div class="day-header">${fmtLong(d)} <span style="font-size:12px;font-weight:400;color:#6B7280;">[${src}] &nbsp;·&nbsp; Protocol Score: ${sc.score}/100</span></div>`;
+
+      // Meals
+      html+=`<table><tr>${th('Meal')}${th('Food Items & Macros per Item')}</tr>`;
       if(hasLive){
         MEALS.forEach(meal=>{
           const entries=dayFood[meal]||[];
-          mealRows.push(new TableRow({children:[
-            cl(meal,{bold:true,fill:C_GREY,w:1400}),
-            mlCell(entries.length?entries.map(e=>`${e.name}  —  ${e.calories} cal  |  P:${e.protein}g  C:${e.carbs}g  F:${e.fat}g  Na:${e.sodium}mg${(e.vegCups||0)>0?'  Veg:'+e.vegCups+'c':''}${e.est?' (estimated)':''}`):['Not logged'],{w:7960,sz:17})
-          ]}));
+          const rows=entries.length
+            ?entries.map(e=>`<div style="padding:2px 0;border-bottom:1px solid #f0f0f0;">${e.name}${e.est?' <em style="color:#9CA3AF;">(est.)</em>':''} &mdash; <strong>${e.calories} cal</strong> &nbsp;|&nbsp; P:${e.protein}g &nbsp;C:${e.carbs}g &nbsp;F:${e.fat}g &nbsp;Na:${e.sodium}mg${(e.vegCups||0)>0?` &nbsp;🥦${e.vegCups}c`:''}</div>`).join('')
+            :`<span style="color:#9CA3AF;font-style:italic;">Not logged</span>`;
+          html+=`<tr><td style="padding:6px 10px;border:1px solid #ddd;background:${cGrey};font-weight:700;font-size:12px;width:15%;vertical-align:top;">${meal}</td><td style="padding:6px 10px;border:1px solid #ddd;font-size:12px;">${rows}</td></tr>`;
         });
-      } else if(hasMFP){
-        mealRows.push(new TableRow({children:[
-          cl('MFP Import',{bold:true,fill:C_GREY,w:1400}),
-          mlCell(['MyFitnessPal daily totals — individual meal breakdown not available for this date'],{w:7960,sz:17})
-        ]}));
-      } else {
-        mealRows.push(new TableRow({children:[
-          cl('No data',{bold:true,fill:C_GREY,w:1400}),
-          mlCell(['No food data logged for this day'],{w:7960,sz:17})
-        ]}));
+      }else if(hasMFP){
+        html+=`<tr><td style="padding:6px 10px;border:1px solid #ddd;background:${cGrey};font-weight:700;font-size:12px;width:15%;">MFP Import</td><td style="padding:6px 10px;border:1px solid #ddd;font-size:12px;color:#6B7280;font-style:italic;">MyFitnessPal daily totals — individual meal breakdown not available for this date</td></tr>`;
+      }else{
+        html+=`<tr><td colspan="2" style="padding:6px 10px;border:1px solid #ddd;font-size:12px;color:#9CA3AF;font-style:italic;">No food data logged for this day</td></tr>`;
       }
-      docChildren.push(new Table({width:{size:9360,type:WidthType.DXA},columnWidths:[1400,7960],rows:mealRows}));
+      html+=`</table>`;
 
-      // Macros row
+      // Macro totals row
       if(hasAny){
-        docChildren.push(new Table({width:{size:9360,type:WidthType.DXA},columnWidths:[1040,1040,1040,1040,1040,1040,1040,1040,1040],rows:[
-          new TableRow({children:[
-            cl('Calories',{bold:true,fill:C_DARK,color:C_WHITE,sz:16,w:1040}),cl('Protein',{bold:true,fill:C_DARK,color:C_WHITE,sz:16,w:1040}),
-            cl('Carbs',{bold:true,fill:C_DARK,color:C_WHITE,sz:16,w:1040}),cl('Fat',{bold:true,fill:C_DARK,color:C_WHITE,sz:16,w:1040}),
-            cl('Sodium',{bold:true,fill:C_DARK,color:C_WHITE,sz:16,w:1040}),cl('Fiber',{bold:true,fill:C_DARK,color:C_WHITE,sz:16,w:1040}),
-            cl('Veg',{bold:true,fill:C_DARK,color:C_WHITE,sz:16,w:1040}),cl('Ginger',{bold:true,fill:C_DARK,color:C_WHITE,sz:16,w:1040}),
-            cl('Hydration',{bold:true,fill:C_DARK,color:C_WHITE,sz:16,w:1040}),
-          ]}),
-          new TableRow({children:[
-            cl(Math.round(t.cal)+' kcal',{fill:C_GREY,sz:17,w:1040,align:AlignmentType.CENTER}),
-            cl(fmt(t.protein,1)+'g',{fill:flagProt(t.protein),sz:17,w:1040,bold:true,align:AlignmentType.CENTER}),
-            cl(fmt(t.carbs,1)+'g',{fill:C_GREY,sz:17,w:1040,align:AlignmentType.CENTER}),
-            cl(fmt(t.fat,1)+'g',{fill:C_GREY,sz:17,w:1040,align:AlignmentType.CENTER}),
-            cl(Math.round(t.sodium)+'mg',{fill:flagSod(t.sodium),sz:17,w:1040,bold:true,align:AlignmentType.CENTER}),
-            cl(fmt(t.fiber,1)+'g',{fill:C_GREY,sz:17,w:1040,align:AlignmentType.CENTER}),
-            cl(fmt(t.vegCups||0,1)+'c',{fill:(t.vegCups||0)>=4?C_LIGHT:C_GREY,sz:17,w:1040,align:AlignmentType.CENTER}),
-            cl(dayMeta.fiery?'✓':'✗',{fill:dayMeta.fiery?C_LIGHT:C_RED,sz:17,w:1040,bold:true,align:AlignmentType.CENTER}),
-            cl((dayMeta.hyd||0)+'/3',{fill:(dayMeta.hyd||0)>=3?C_LIGHT:(dayMeta.hyd||0)>=2?C_AMBER:C_GREY,sz:17,w:1040,align:AlignmentType.CENTER}),
-          ]}),
-        ]}));
+        html+=`<table style="margin-top:-14px;"><tr>${th('Calories')}${th('Protein')}${th('Carbs')}${th('Fat')}${th('Sodium')}${th('Fiber')}${th('Veg')}${th('Ginger')}${th('Hydration')}</tr>
+        <tr>
+          ${td(Math.round(t.cal)+' kcal',cGrey,'','center')}
+          ${td(fmt(t.protein,1)+'g',fProt(t.protein),true,'center')}
+          ${td(fmt(t.carbs,1)+'g',cGrey,'','center')}
+          ${td(fmt(t.fat,1)+'g',cGrey,'','center')}
+          ${td(Math.round(t.sodium)+'mg',fSod(t.sodium),true,'center')}
+          ${td(fmt(t.fiber,1)+'g',cGrey,'','center')}
+          ${td(fmt(t.vegCups||0,1)+'c',(t.vegCups||0)>=4?cGreen:cGrey,'','center')}
+          ${td(dayMeta.fiery?'✓':'✗',fGinger(dayMeta.fiery),true,'center')}
+          ${td((dayMeta.hyd||0)+'/3',fHyd(dayMeta.hyd||0),'','center')}
+        </tr></table>`;
       }
 
-      // Sleep/Steps/Notes
-      const extras=[];
-      if(dayMeta.sleep)extras.push(`Sleep: ${dayMeta.sleep}h ${parseFloat(dayMeta.sleep)>=7?'✓':'⚠'}`);
-      if(dayMeta.steps)extras.push(`Steps: ${parseInt(dayMeta.steps).toLocaleString()}`);
-      if(dayMeta.gf!==undefined)extras.push(`Grain-Free: ${dayMeta.gf?'✓ Yes':'✗ No'}`);
-      if(extras.length){
-        docChildren.push(new Paragraph({spacing:{before:60,after:40},children:[new TextRun({text:extras.join('   |   '),font:'Arial',size:17,color:C_MUTED,italics:true})]}));
-      }
-      if(dayMeta.notes){
-        docChildren.push(new Paragraph({spacing:{before:40,after:60},children:[new TextRun({text:'Notes: '+dayMeta.notes,font:'Arial',size:17,color:C_TEXT,italics:true})]}));
-      }
-      docChildren.push(sp(80));
-    }
+      // Protocol extras
+      const ex=[];
+      if(dayMeta.sleep)ex.push(`Sleep: ${dayMeta.sleep}h ${parseFloat(dayMeta.sleep)>=7?'✓':'⚠'}`);
+      if(dayMeta.steps)ex.push(`Steps: ${parseInt(dayMeta.steps).toLocaleString()}`);
+      if(dayMeta.gf!==undefined&&dayMeta.gf!==null)ex.push(`Grain-Free: ${dayMeta.gf?'✓ Yes':'✗ No'}`);
+      if(ex.length)html+=`<div class="extras">${ex.join(' &nbsp;|&nbsp; ')}</div>`;
+      if(dayMeta.notes)html+=`<div class="extras">Notes: ${dayMeta.notes}</div>`;
+    });
 
-    // ══ PERIOD SUMMARY ══
-    docChildren.push(new Paragraph({children:[new PageBreak()]}));
-    docChildren.push(...divider('Period Summary & Averages'));
+    // Period summary
+    html+=`<div style="page-break-before:always;"></div>`;
+    html+=hdr('Period Summary & Averages');
 
     if(dWD>0){
       const avgCal=Math.round(totCal/dWD),avgProt=Math.round(totProt/dWD);
@@ -1196,123 +1130,85 @@ async function generateSteveReport(){
       const avgSod=Math.round(totSod/dWD),avgFiber=Math.round(totFiber/dWD);
       const avgVeg=fmt(totVeg/dWD,1),avgHyd=fmt(totHyd/days.length,1);
       const avgSleep=slDays>0?fmt(totSleep/slDays,1)+'h':'insufficient data';
+      const protPct=Math.round(dProtMet/dWD*100),sodPct=Math.round(dSodMet/dWD*100);
       const gingerPct=Math.round(totGinger/days.length*100);
-      const protPct=Math.round(dProtMet/dWD*100);
-      const sodPct=Math.round(dSodMet/dWD*100);
 
-      docChildren.push(new Table({width:{size:9360,type:WidthType.DXA},columnWidths:[2600,2380,2380,2000],rows:[
-        new TableRow({children:[cl('Metric',{bold:true,fill:C_DARK,color:C_WHITE,w:2600}),cl('Average',{bold:true,fill:C_DARK,color:C_WHITE,w:2380}),cl('Target',{bold:true,fill:C_DARK,color:C_WHITE,w:2380}),cl('% Days Met',{bold:true,fill:C_DARK,color:C_WHITE,w:2000})]}),
-        new TableRow({children:[cl('Calories',{fill:C_GREY,w:2600}),cl(avgCal+' kcal/day',{fill:C_GREY,w:2380}),cl('1,600–1,800 kcal',{fill:C_GREY,w:2380}),cl('—',{fill:C_GREY,w:2000})]}),
-        new TableRow({children:[cl('Protein',{w:2600}),cl(avgProt+'g/day',{bold:true,w:2380}),cl('130g+',{w:2380}),cl(protPct+'%  ('+dProtMet+'/'+dWD+' days)',{fill:avgProt>=130?C_LIGHT:C_AMBER,bold:true,w:2000})]}),
-        new TableRow({children:[cl('Carbohydrates',{fill:C_GREY,w:2600}),cl(avgCarbs+'g/day',{fill:C_GREY,w:2380}),cl('Low / minimal grain',{fill:C_GREY,w:2380}),cl('See daily logs',{fill:C_GREY,w:2000})]}),
-        new TableRow({children:[cl('Fat',{w:2600}),cl(avgFat+'g/day',{w:2380}),cl('~80g',{w:2380}),cl('—',{w:2000})]}),
-        new TableRow({children:[cl('Sodium',{fill:C_GREY,w:2600}),cl(avgSod+'mg/day',{bold:true,fill:C_GREY,w:2380}),cl('<1,500mg',{fill:C_GREY,w:2380}),cl(sodPct+'%  ('+dSodMet+'/'+dWD+' days)',{fill:avgSod<=1500?C_LIGHT:C_AMBER,bold:true,w:2000})]}),
-        new TableRow({children:[cl('Fiber',{w:2600}),cl(avgFiber+'g/day',{w:2380}),cl('25g+',{w:2380}),cl('—',{w:2000})]}),
-        new TableRow({children:[cl('Vegetables',{fill:C_GREY,w:2600}),cl(avgVeg+' cups/day',{fill:C_GREY,w:2380}),cl('6 cups',{fill:C_GREY,w:2380}),cl('—',{fill:C_GREY,w:2000})]}),
-        new TableRow({children:[cl('Ginger Shot',{w:2600}),cl(totGinger+'/'+days.length+' days',{w:2380}),cl('Daily',{w:2380}),cl(gingerPct+'%',{fill:gingerPct>=80?C_LIGHT:C_AMBER,bold:true,w:2000})]}),
-        new TableRow({children:[cl('Hydration',{fill:C_GREY,w:2600}),cl(avgHyd+'/3 events avg',{fill:C_GREY,w:2380}),cl('3/3 daily',{fill:C_GREY,w:2380}),cl('—',{fill:C_GREY,w:2000})]}),
-        new TableRow({children:[cl('Sleep',{w:2600}),cl(avgSleep,{w:2380}),cl('7h+',{w:2380}),cl('—',{w:2000})]}),
-      ]}),sp(200));
+      html+=`<table><tr>${th('Metric')}${th('Period Average')}${th('Target')}${th('Days Met')}</tr>
+      <tr>${td('Total Days in Period',cGrey,true)}${td(days.length+' ('+dWD+' with nutrition data)')}${td('—')}${td('—')}</tr>
+      <tr>${td('Calories',cGrey,true)}${td(avgCal+' kcal/day')}${td('1,600–1,800 kcal')}${td('—')}</tr>
+      <tr>${td('Protein',cGrey,true)}${td(avgProt+'g/day',undefined,true)}${td('130g+')}${td(dProtMet+'/'+dWD+' ('+protPct+'%)',avgProt>=(s.prot||130)?cGreen:cAmber,true)}</tr>
+      <tr>${td('Carbohydrates',cGrey,true)}${td(avgCarbs+'g/day')}${td('Low / minimal grain')}${td('See daily logs')}</tr>
+      <tr>${td('Fat',cGrey,true)}${td(avgFat+'g/day')}${td('~80g')}${td('—')}</tr>
+      <tr>${td('Sodium',cGrey,true)}${td(avgSod+'mg/day',undefined,true)}${td('<1,500mg')}${td(dSodMet+'/'+dWD+' ('+sodPct+'%)',avgSod<=(s.sod||1500)?cGreen:cAmber,true)}</tr>
+      <tr>${td('Fiber',cGrey,true)}${td(avgFiber+'g/day')}${td('25g+')}${td('—')}</tr>
+      <tr>${td('Vegetables',cGrey,true)}${td(avgVeg+' cups/day')}${td('6 cups')}${td('—')}</tr>
+      <tr>${td('Fiery Ginger Shot',cGrey,true)}${td(totGinger+' / '+days.length+' days')}${td('Daily')}${td(gingerPct+'%',gingerPct>=80?cGreen:cAmber,true)}</tr>
+      <tr>${td('Avg Hydration Events',cGrey,true)}${td(avgHyd+'/3 per day')}${td('3/3 daily')}${td('—')}</tr>
+      <tr>${td('Avg Sleep (logged)',cGrey,true)}${td(avgSleep)}${td('7h+')}${td('—')}</tr>
+      </table>`;
     }
 
-    // Latest scan
-    if(scanDatesInRange.length>0){
-      const ls=allScans[scanDatesInRange[scanDatesInRange.length-1]];
-      const lsd=scanDatesInRange[scanDatesInRange.length-1];
-      docChildren.push(new Paragraph({heading:HeadingLevel.HEADING_2,children:[new TextRun({text:'Latest Body Composition — '+fmtShort(lsd),font:'Arial',bold:true,color:C_DARK})]}));
-      docChildren.push(new Table({width:{size:9360,type:WidthType.DXA},columnWidths:[4680,4680],rows:[
-        new TableRow({children:[cl('Weight',{bold:true,fill:C_GREY,w:4680}),cl(fmt(ls.weight,2)+' lbs  (goal: 201.4 lbs  |  remaining: '+fmt(ls.weight-201.4,2)+' lbs)',{w:4680})]}),
-        new TableRow({children:[cl('Body Fat %',{bold:true,fill:C_GREY,w:4680}),cl(fmt(ls.bfPct,2)+'%  ('+fmt(ls.bfLbs,2)+' lbs fat mass)  |  Target: 20–25%',{w:4680})]}),
-        new TableRow({children:[cl('Skeletal Muscle',{bold:true,fill:C_LIGHT,w:4680}),cl(fmt(ls.smLbs,2)+' lbs  (normal range: 69.6–85 lbs — well above ✓)',{fill:C_LIGHT,w:4680})]}),
-        new TableRow({children:[cl('Visceral Fat',{bold:true,fill:C_AMBER,w:4680}),cl('Grade '+ls.vf+'  |  Target: < Grade 10',{fill:C_AMBER,w:4680})]}),
-        new TableRow({children:[cl('Body Water',{bold:true,fill:C_GREY,w:4680}),cl(fmt(ls.bwPct,2)+'%  |  Target: 50–65%',{fill:ls.bwPct>=50?C_LIGHT:C_GREY,w:4680})]}),
-        new TableRow({children:[cl('BMR',{bold:true,fill:C_GREY,w:4680}),cl(ls.bmr+' kcal  |  Normal: 2,125–2,519 kcal',{fill:C_GREY,w:4680})]}),
-        new TableRow({children:[cl('Fitness Score',{bold:true,fill:C_GREY,w:4680}),cl(fmt(ls.fit,2)+'/100',{fill:C_GREY,w:4680})]}),
-        ls.whr?new TableRow({children:[cl('Waist-Hip Ratio',{bold:true,fill:C_AMBER,w:4680}),cl(ls.whr+'  |  Target: ≤0.9',{fill:C_AMBER,w:4680})]}):null,
-      ].filter(Boolean)}),sp(200));
+    // Latest scan detail
+    if(scanDates.length>0){
+      const lsd=scanDates[scanDates.length-1],ls=allScans[lsd];
+      html+=`<h3 style="font-size:15px;font-weight:800;color:#1B4332;margin:20px 0 8px;">Latest Body Composition — ${fmtShort(lsd)}</h3>`;
+      html+=`<table>
+      ${overviewRow('Weight',fmt(ls.weight,2)+' lbs &nbsp;|&nbsp; Goal: 201.4 lbs &nbsp;|&nbsp; Remaining: '+fmt(ls.weight-201.4,2)+' lbs')}
+      ${overviewRow('Body Fat %',fmt(ls.bfPct,2)+'% ('+fmt(ls.bfLbs||0,2)+' lbs fat mass) &nbsp;|&nbsp; Target: 20–25%')}
+      ${overviewRow('Skeletal Muscle',fmt(ls.smLbs,2)+' lbs — above normal range (69.6–85 lbs) ✓',cGreen)}
+      ${overviewRow('Visceral Fat','Grade '+ls.vf+' &nbsp;|&nbsp; Target: < Grade 10',cAmber)}
+      ${overviewRow('Body Water',fmt(ls.bwPct,2)+'% &nbsp;|&nbsp; Target: 50–65%',ls.bwPct>=50?cGreen:cAmber)}
+      ${overviewRow('BMR',ls.bmr+' kcal &nbsp;|&nbsp; Normal range: 2,125–2,519 kcal')}
+      ${overviewRow('Fitness Score',fmt(ls.fit,2)+'/100')}
+      ${ls.whr?overviewRow('Waist-Hip Ratio',ls.whr+' &nbsp;|&nbsp; Target: ≤0.9',cAmber):''}
+      </table>`;
     }
 
-    // Clinical observations
-    docChildren.push(new Paragraph({heading:HeadingLevel.HEADING_2,children:[new TextRun({text:'Key Clinical Observations',font:'Arial',bold:true,color:C_DARK})]}));
+    // Observations
+    html+=hdr('Key Clinical Observations');
     const obs=[
       'Sobriety maintained continuously since March 7, 2026 — this is the single highest-impact intervention for liver recovery and visceral fat reduction.',
       'Body water percentage trending toward normal range (50%+) — hydration protocol (ginger/lemon tea, 3 events/day) is producing measurable physiological results.',
       'Skeletal muscle mass exceptionally preserved at 104+ lbs throughout protocol — well above normal range. No muscle catabolism detected despite caloric deficit periods.',
       'Sodium is the primary dietary challenge — home meals are well-controlled, restaurant meals consistently drive sodium to 2,000–4,000mg+. Proactive menu review and sauce management recommended.',
       'Protein intake is the primary nutritional gap. Days achieving 130g+ demonstrate the target is feasible. Consistency across all meals is the key opportunity.',
-      'Visceral Fat Grade 14 remains unchanged during this period — this metric typically lags 6–8 weeks behind lifestyle interventions. Current protocol is appropriate; patience required.',
-      'Grain and processed food exposure (tortillas, pizza, waffle fries, granola, oats) correlates with Damp-Heat perpetuation. Patient is aware and working to reduce these.',
+      'Visceral Fat Grade 14 remains unchanged during this period — this metric typically lags 6–8 weeks behind lifestyle interventions. Current protocol is appropriate.',
+      'Grain and processed food exposure (tortillas, pizza, waffle fries, granola) correlates with Damp-Heat perpetuation. Patient is aware and actively reducing these.',
       'Sleep quality improving — 7.1–7.75h on logged days. Consistent 7h+ sleep is critical for cortisol regulation and visceral fat metabolism.',
-      'Fiery Ginger Shot established as a reliable daily habit from late March — positive momentum.',
+      'Fiery Ginger Shot established as a reliable daily habit — positive protocol momentum.',
     ];
-    obs.forEach(o=>{
-      docChildren.push(new Paragraph({numbering:{reference:'bullets',level:0},spacing:{after:80},children:[new TextRun({text:o,font:'Arial',size:20,color:C_TEXT})]}));
-    });
-    docChildren.push(sp(160));
+    html+=`<ol style="padding-left:22px;">${obs.map(o=>`<li style="margin-bottom:8px;font-size:13px;">${o}</li>`).join('')}</ol>`;
 
-    docChildren.push(new Paragraph({heading:HeadingLevel.HEADING_2,children:[new TextRun({text:'Recommendations for Steve',font:'Arial',bold:true,color:C_DARK})]}));
+    html+=hdr('Recommendations for Steve');
     const recs=[
-      'Continue current herbal protocol — TCM Damp-Heat drainage and liver support formulas align well with dietary improvements observed.',
+      'Continue current herbal protocol — TCM Damp-Heat drainage and liver support formulas align well with the dietary improvements observed.',
       'Prioritize protein at each meal: minimum 30–35g per sitting. Current favourites (rotisserie chicken, Skyr, eggs, grilled fish) should anchor every meal.',
-      'Sodium coaching for restaurant scenarios — patient successfully navigated two restaurant dinners this period using protocol-compliant ordering strategies.',
+      'Sodium coaching for restaurant scenarios — patient successfully navigated multiple restaurant dinners this period using protocol-compliant ordering strategies.',
       'Begin progressive step count tracking — 7,000–10,000 daily steps will materially accelerate VAT reduction.',
       'Maintain grain-free days as primary goal on home days; allow controlled exceptions at social dinners.',
     ];
-    recs.forEach((r,i)=>{
-      docChildren.push(new Paragraph({numbering:{reference:'numbers',level:0},spacing:{after:80},children:[new TextRun({text:r,font:'Arial',size:20,color:C_TEXT})]}));
-    });
-    docChildren.push(sp(200));
+    html+=`<ol style="padding-left:22px;">${recs.map(r=>`<li style="margin-bottom:8px;font-size:13px;">${r}</li>`).join('')}</ol>`;
 
-    // Footer line
-    docChildren.push(new Paragraph({
-      border:{top:{style:BorderStyle.SINGLE,size:4,color:C_DARK}},
-      spacing:{before:200,after:80},
-      children:[new TextRun({text:`Report generated: ${fmtLong(today())}  |  Period: ${fmtShort(from)} – ${fmtShort(to)}  |  Data: Firebase + MFP + Protocol Logs`,font:'Arial',size:16,color:C_MUTED,italics:true})]
-    }));
+    html+=`<div style="border-top:2px solid #1B4332;margin-top:30px;padding-top:10px;font-size:11px;color:#9CA3AF;font-style:italic;">
+      Report generated: ${fmtLong(today())} &nbsp;|&nbsp; Period: ${fmtShort(from)} – ${fmtShort(to)} &nbsp;|&nbsp; Data: Firebase + MFP + Protocol Logs
+    </div></body></html>`;
 
-    // ══ ASSEMBLE & DOWNLOAD ══
-    const doc=new Document({
-      numbering:{config:[
-        {reference:'bullets',levels:[{level:0,format:LevelFormat.BULLET,text:'•',alignment:AlignmentType.LEFT,style:{paragraph:{indent:{left:540,hanging:360}}}}]},
-        {reference:'numbers',levels:[{level:0,format:LevelFormat.DECIMAL,text:'%1.',alignment:AlignmentType.LEFT,style:{paragraph:{indent:{left:540,hanging:360}}}}]},
-      ]},
-      styles:{
-        default:{document:{run:{font:'Arial',size:20}}},
-        paragraphStyles:[
-          {id:'Heading1',name:'Heading 1',basedOn:'Normal',next:'Normal',quickFormat:true,run:{size:28,bold:true,font:'Arial',color:C_DARK},paragraph:{spacing:{before:240,after:160},outlineLevel:0}},
-          {id:'Heading2',name:'Heading 2',basedOn:'Normal',next:'Normal',quickFormat:true,run:{size:24,bold:true,font:'Arial',color:C_DARK},paragraph:{spacing:{before:180,after:120},outlineLevel:1}},
-        ]
-      },
-      sections:[{
-        properties:{page:{size:{width:12240,height:15840},margin:{top:1440,right:1260,bottom:1440,left:1260}}},
-        headers:{default:new Header({children:[new Paragraph({
-          border:{bottom:{style:BorderStyle.SINGLE,size:4,color:C_DARK}},spacing:{after:60},
-          tabStops:[{type:TabStopType.RIGHT,position:TabStopPosition.MAX}],
-          children:[
-            new TextRun({text:`CLINICAL DIETARY REPORT  |  James Marshall  |  ${fmtShort(from)} – ${fmtShort(to)}`,font:'Arial',size:16,color:C_MUTED}),
-            new TextRun({text:'\t',font:'Arial',size:16}),
-            new TextRun({text:'Confidential',font:'Arial',size:16,color:C_MUTED,italics:true}),
-          ]
-        })]})},
-        children:docChildren
-      }]
-    });
-
-    const blob=await Packer.toBlob(doc);
+    // ── Download as HTML ──
+    const blob=new Blob([html],{type:'text/html;charset=utf-8'});
     const url=URL.createObjectURL(blob);
     const a=document.createElement('a');
     a.href=url;
-    const fname=`James_Clinical_Report_${from}_to_${to}.docx`;
-    a.download=fname;
-    document.body.appendChild(a);a.click();document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+    a.download=`James_Clinical_Report_${from}_to_${to}.html`;
+    document.body.appendChild(a);a.click();
+    document.body.removeChild(a);URL.revokeObjectURL(url);
     closeOv('ov-sum');
-    alert('✓ Report downloaded: '+fname);
+    alert('✓ Report downloaded! Open it in Safari and tap Share → Print to save as PDF.');
+
   }catch(e){
     console.error(e);
-    alert('Error generating DOCX: '+e.message+'\n\nCheck console for details.');
+    alert('Error generating report: '+e.message);
   }finally{
-    btn.disabled=false;btn.innerHTML='📋 Generate & Download DOCX';
+    btn.disabled=false;btn.innerHTML='📋 Generate & Download Report';
   }
 }
 
